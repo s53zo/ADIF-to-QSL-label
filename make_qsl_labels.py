@@ -1,32 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-QSL label PDF generator for Avery Zweckform 3664 (A4, 3??8 grid; 70??33.8 mm)
+QSL label PDF generator for Avery Zweckform 3664 (A4, 3×8 grid; 70×33.8 mm)
 
-KEY FEATURES
-------------
-??? Parses ADIF and groups QSOs by CALL (alphabetical).
-??? 4 QSOs per label (columns: Date | Time | Band | Mode | QSL).  (No RST.)
-??? Column widths are auto-normalized to fill the 70 mm label width (you can use any numbers).
-??? Automatic text shrink to prevent overflow into neighboring columns.
-??? Fine-tuning alignment:
-    - Per-column horizontal offsets (mm) -> fix slight left/right drift per column.
-    - Per-row vertical offsets (mm)     -> fix slight up/down drift per row.
-  This lets you print a test and dial in perfect alignment on your printer.
+• Parses ADIF, groups QSOs by CALL (alphabetical).
+• 4 QSOs per label (Date | Time | Band | Mode | QSL).
+• Dynamic per-label column widths (based on content), constant within label.
+• Text auto-shrinks to fit cell width.
+• Fine-tuning: per-column (horizontal) and per-row (vertical) offsets.
+• TABLE COLUMNS ARE ALWAYS LEFT-ALIGNED (headers + data).
+• Debug: outline boxes, row guides, and optional left-edge ticks.
 
-WORKFLOW TO DIAL IN ALIGNMENT
------------------------------
-1) Run with --outline and --guides and print on plain paper.
-2) Hold the print over a real label sheet against light to see where it???s off.
-3) Adjust:
-    - --col-offsets "c1,c2,c3" (mm). Positive moves RIGHT; negative moves LEFT.
-    - --row-offsets "r1,r2,...,r8" (mm). Positive moves UP; negative moves DOWN.
-4) Reprint until every column & row sits perfectly on label cuts.
-5) Turn off --outline/--guides for final prints.
-
-REQUIREMENTS
-------------
-pip install reportlab
+Install:  pip install reportlab
 """
 
 from __future__ import annotations
@@ -36,7 +21,6 @@ from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
-# PDF / layout
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.units import mm
@@ -44,30 +28,36 @@ from reportlab.lib.units import mm
 # ========================== CONFIG ==========================
 
 CONFIG = {
-    # --- Page & grid (Avery 3664) ---
-    "page_size": "A4",          # "A4" or "LETTER"
-    "cols": 3,                  # labels across
-    "rows": 8,                  # labels down
-    "label_w_mm": 70.0,         # 70.0 mm (Avery 3664 width)
-    "label_h_mm": 33.8,         # 33.8 mm (Avery 3664 height)
-    # Margins: 3??70mm = 210mm, so left margin is typically 0 on A4.
-    # top_margin_mm=None auto-centers vertically (nice for printers that are true to size)
+    # Page/grid
+    "page_size": "A4",
+    "cols": 3,
+    "rows": 8,
+    "label_w_mm": 70.0,
+    "label_h_mm": 33.8,
     "left_margin_mm": 0.0,
-    "top_margin_mm": None,      # None => auto-center vertically
+    "top_margin_mm": None,  # None => auto-center vertically
 
-    # --- In-label padding & debugging ---
-    "pad_x_mm": 2.0,            # inner side padding (mm)
-    "pad_y_mm": 2.0,            # inner top/bottom padding (mm)
-    "draw_label_outlines": False,   # visible label borders for test prints
-    "draw_table_guides": False,     # faint row baselines for test prints
+    # In-label padding
+    "pad_x_mm": 2.0,
+    "pad_y_mm": 2.0,
 
-    # --- Table (no RST): Date | Time | Band | Mode | QSL ---
+    # Debug visuals
+    "draw_label_outlines": False,
+    "draw_table_guides": False,
+    "draw_cell_left_ticks": False,  # vertical ticks at each column's left edge
+
+    # Table (no RST): Date | Time | Band | Mode | QSL
     "rows_per_label": 4,
     "table_headers": ["Date", "Time", "Band", "Mode", "QSL"],
-    # You can put any numbers here; they will be scaled to fill 70 mm.
-    "table_col_mm":  [20, 12, 12, 18, 8],
 
-    # --- Fonts & sizes ---
+    # Fallback static widths (mm) if dynamic disabled
+    "table_col_mm": [20, 12, 12, 18, 8],
+
+    # Dynamic per-label column sizing
+    "dynamic_col_widths": True,
+    "min_col_mm": [12, 10, 10, 12, 6],  # per-column minimums (mm)
+
+    # Fonts/sizes
     "font_body": "Helvetica",
     "font_bold": "Helvetica-Bold",
     "font_mono": "Courier",
@@ -77,25 +67,20 @@ CONFIG = {
     "size_rows": 8.2,
     "size_footer": 7.2,
 
-    # --- Static texts ---
+    # Static texts
     "label_left_header": "To Radio",
-    "footer_left":  "SY: Blondie, South Adriatic sea",
+    "footer_left": "SY: Blondie, South Adriatic sea",
     "footer_right": "TNX & 73",
 
-    # --- QSL column logic ---
-    # If any of these ADIF flags == 'Y', show TNX; otherwise PSE.
+    # QSL logic
     "qsl_received_keys": ["QSL_RCVD", "LOTW_QSL_RCVD", "EQSL_QSL_RCVD"],
 
-    # --- Mode normalization ---
+    # Mode normalization
     "ssb_modes": {"USB", "LSB"},
 
-    # --- FINE-TUNING OFFSETS (mm) ---
-    # Per-column horizontal offsets (length must equal 'cols').
-    # + value moves RIGHT, - value moves LEFT for that column only.
-    "col_offsets_mm": [0.0, 0.0, 0.0],
-    # Per-row vertical offsets (length must equal 'rows').
-    # + value moves UP, - value moves DOWN for that row only.
-    "row_offsets_mm": [0.0] * 8,
+    # Fine-tuning (mm)
+    "col_offsets_mm": [0.0, 0.0, 0.0],  # +right / -left per column
+    "row_offsets_mm": [0.0] * 8,        # +up    / -down per row
 }
 
 # ======================= ADIF HELPERS =======================
@@ -124,14 +109,12 @@ def parse_adif(text: str) -> List[Dict[str, str]]:
     return records
 
 def fmt_date(adif_date: str) -> str:
-    if not adif_date:
-        return ""
+    if not adif_date: return ""
     s = adif_date.strip()
     return f"{s[0:4]}-{s[4:6]}-{s[6:8]}" if len(s) >= 8 and s[:8].isdigit() else s
 
 def fmt_time(adif_time: str) -> str:
-    if not adif_time:
-        return ""
+    if not adif_time: return ""
     s = adif_time.strip()
     return f"{s[0:2]}:{s[2:4]}" if len(s) >= 4 and s[:4].isdigit() else s
 
@@ -178,22 +161,71 @@ def qsl_value(rec: Dict[str, str], received_keys: List[str]) -> str:
             return "TNX"
     return "PSE"
 
+# =================== DRAWING UTILITIES ======================
+
+def shrink_and_draw(c, text: str, font: str, size: float,
+                    x: float, y: float, max_width: float,
+                    *, min_size: float = 5.0, step: float = 0.3) -> float:
+    """
+    Left-align draw: shrink text until it fits max_width, then draw at (x, y).
+    Returns the final font size used.
+    """
+    if not text:
+        return size
+    txt = str(text)
+    current = float(size)
+    c.setFont(font, current)
+    while c.stringWidth(txt, font, current) > max_width and current > min_size:
+        current -= step
+        if current < min_size:
+            current = min_size
+        c.setFont(font, current)
+    c.drawString(x, y, txt)
+    return current
+
+def compute_col_widths_for_label(c: canvas.Canvas, cfg: Dict,
+                                 qso_rows: List[Dict[str, str]], label_w_pt: float) -> List[float]:
+    """
+    Measure widest header/data text per column, add small slack, enforce minimums,
+    then scale columns to fill label width exactly. Constant within the label.
+    """
+    headers = cfg["table_headers"]
+    n = len(headers)
+    widths = []
+    for i in range(n):
+        w_header = c.stringWidth(headers[i], cfg["font_bold"], cfg["size_col_headers"])
+        widths.append(w_header)
+    for row in qso_rows:
+        if not row: continue
+        parts = [row["DATE"], row["TIME"], row["BAND"], row["MODE"], row["QSL"]]
+        for i, txt in enumerate(parts):
+            w = c.stringWidth(txt or "", cfg["font_mono"], cfg["size_rows"])
+            widths[i] = max(widths[i], w)
+    widths = [w + 2.0 for w in widths]  # slack
+    min_pts = [m * mm for m in cfg["min_col_mm"]]
+    for i in range(n):
+        widths[i] = max(widths[i], min_pts[i])
+    total = sum(widths)
+    if total <= 0:
+        total_mm = sum(cfg["table_col_mm"]) or 1.0
+        scale = (cfg["label_w_mm"] / total_mm)
+        return [w * mm * scale for w in cfg["table_col_mm"]]
+    scale = label_w_pt / total
+    return [w * scale for w in widths]
+
 # ====================== PDF RENDERING =======================
 
 def page_size_tuple(name: str):
-    name = (name or "A4").upper()
-    if name == "A4":
+    if name.upper() == "A4":
         return A4
-    if name in ("LETTER", "USLETTER", "US_LETTER"):
+    if name.upper() in ("LETTER", "USLETTER", "US_LETTER"):
         return letter
     raise ValueError(f"Unsupported page size: {name}")
 
 def build_labels(rows: List[Dict[str, str]], rows_per_label: int) -> List[Tuple[str, List[Dict[str, str]]]]:
-    """Group rows by CALL (alphabetical), split into chunks of rows_per_label."""
     by_call = defaultdict(list)
     for r in rows:
         by_call[r["CALL"]].append(r)
-    # chronological within each callsign
     for c in by_call:
         by_call[c].sort(key=lambda x: (x["_DATE_RAW"], x["_TIME_RAW"]))
     labels: List[Tuple[str, List[Dict[str, str]]]] = []
@@ -203,18 +235,6 @@ def build_labels(rows: List[Dict[str, str]], rows_per_label: int) -> List[Tuple[
             labels.append((call, items[i:i+rows_per_label]))
     return labels
 
-def shrink_and_draw(c: canvas.Canvas, text: str, font: str, size: float,
-                    x: float, y: float, max_width: float, min_size: float = 5.0, step: float = 0.3):
-    """Draw text with auto-shrink to fit max_width. Won't go below min_size."""
-    c.setFont(font, size)
-    if c.stringWidth(text, font, size) <= max_width:
-        c.drawString(x, y, text)
-        return
-    while size > min_size and c.stringWidth(text, font, size) > max_width:
-        size -= step
-    c.setFont(font, size)
-    c.drawString(x, y, text)
-
 def render_pdf(labels, cfg, out_pdf: Path):
     PAGE_W, PAGE_H = page_size_tuple(cfg["page_size"])
     LABEL_W = cfg["label_w_mm"] * mm
@@ -222,7 +242,7 @@ def render_pdf(labels, cfg, out_pdf: Path):
     COLS = cfg["cols"]
     ROWS = cfg["rows"]
 
-    # Margins
+    # margins
     if cfg["top_margin_mm"] is None:
         vertical_free = PAGE_H - ROWS * LABEL_H
         top_margin = vertical_free / 2.0
@@ -233,13 +253,6 @@ def render_pdf(labels, cfg, out_pdf: Path):
     pad_x = cfg["pad_x_mm"] * mm
     pad_y = cfg["pad_y_mm"] * mm
 
-    # Normalize column widths to fill label width
-    total_mm = sum(cfg["table_col_mm"])
-    scale = (cfg["label_w_mm"] / total_mm) if total_mm > 0 else 1.0
-    col_w = [w * mm * scale for w in cfg["table_col_mm"]]
-    headers = cfg["table_headers"]
-
-    # Validate fine-tuning vectors
     if len(cfg["col_offsets_mm"]) != COLS:
         raise ValueError(f"col_offsets_mm must have length {COLS}")
     if len(cfg["row_offsets_mm"]) != ROWS:
@@ -249,14 +262,20 @@ def render_pdf(labels, cfg, out_pdf: Path):
     labels_per_page = COLS * ROWS
 
     def draw_one(col_idx: int, row_idx: int, hiscall: str, qso_rows: List[Dict[str, str]]):
-        # Base cell corner
         x0 = left_margin + col_idx * LABEL_W
         y0 = PAGE_H - top_margin - (row_idx + 1) * LABEL_H
-        # Apply per-column/per-row fine offsets
-        x0 += cfg["col_offsets_mm"][col_idx] * mm   # + right, - left
-        y0 += cfg["row_offsets_mm"][row_idx] * mm   # + up, - down
+        x0 += cfg["col_offsets_mm"][col_idx] * mm   # +right / -left
+        y0 += cfg["row_offsets_mm"][row_idx] * mm   # +up    / -down
 
-        # Debug outline & guides
+        # per-label column widths
+        if cfg["dynamic_col_widths"]:
+            col_w = compute_col_widths_for_label(c, cfg, qso_rows, LABEL_W)
+        else:
+            total_mm = sum(cfg["table_col_mm"]) or 1.0
+            scale = (cfg["label_w_mm"] / total_mm)
+            col_w = [w * mm * scale for w in cfg["table_col_mm"]]
+
+        # debug outline
         if cfg["draw_label_outlines"]:
             c.setLineWidth(0.3)
             c.setStrokeGray(0.85)
@@ -266,29 +285,34 @@ def render_pdf(labels, cfg, out_pdf: Path):
         x = x0 + pad_x
         y = y0 + LABEL_H - pad_y
 
-        # Header
+        # header
         c.setFont(cfg["font_body"], cfg["size_to_radio"])
         c.drawString(x, y - 8, cfg["label_left_header"])
         c.setFont(cfg["font_bold"], cfg["size_callsign"])
         c.drawCentredString(x0 + LABEL_W/2, y - 8, hiscall.upper())
 
-        # Table headers
+        # table headers (LEFT-aligned)
         c.setFont(cfg["font_bold"], cfg["size_col_headers"])
         cx = x0
-        for i, head in enumerate(headers):
+        for i, head in enumerate(cfg["table_headers"]):
             c.drawString(cx + pad_x, y - 20, head)
             cx += col_w[i]
 
-        # QSO rows
-        line_gap = 9                  # vertical spacing between rows (pt)
+        # optional left-edge ticks for visual confirmation
+        if cfg["draw_cell_left_ticks"]:
+            cx = x0
+            c.setLineWidth(0.3)
+            c.setStrokeGray(0.2)
+            for i in range(len(cfg["table_headers"])):
+                tick_x = cx + pad_x
+                c.line(tick_x, y0 + pad_y, tick_x, y0 + LABEL_H - pad_y)
+                cx += col_w[i]
+            c.setStrokeGray(0.0)
+
+        # data rows (LEFT-aligned)
+        line_gap = 9
         first_line_y = y - 32
         row_y = [first_line_y - i*line_gap for i in range(cfg["rows_per_label"])]
-
-        if cfg["draw_table_guides"]:
-            c.setStrokeGray(0.9)
-            for yy in row_y:
-                c.line(x0 + pad_x, yy - 2, x0 + LABEL_W - pad_x, yy - 2)
-            c.setStrokeGray(0.0)
 
         for ridx in range(cfg["rows_per_label"]):
             data = qso_rows[ridx] if ridx < len(qso_rows) else None
@@ -297,18 +321,20 @@ def render_pdf(labels, cfg, out_pdf: Path):
                 parts = [data["DATE"], data["TIME"], data["BAND"], data["MODE"], data["QSL"]]
             cx = x0
             for i, txt in enumerate(parts):
+                max_w = col_w[i] - 2*pad_x
+                if max_w < 1:
+                    max_w = col_w[i] - 1
                 shrink_and_draw(
-                    c, txt, cfg["font_mono"], cfg["size_rows"],
-                    cx + pad_x, row_y[ridx], col_w[i] - 2
+                    c, txt or "", cfg["font_mono"], cfg["size_rows"],
+                    cx + pad_x, row_y[ridx], max_w
                 )
                 cx += col_w[i]
 
-        # Footer
+        # footer
         c.setFont(cfg["font_body"], cfg["size_footer"])
         c.drawString(x, y0 + pad_y + 2, cfg["footer_left"])
-        c.drawRightString(x0 + LABEL_W - pad_x, y0 + pad_y + 2, cfg["footer_right"])
+        c.drawRightString(x0 + LABEL_W - pad_y, y0 + pad_y + 2, cfg["footer_right"])
 
-    # Paginate
     for idx, (call, chunk) in enumerate(labels):
         pos = idx % labels_per_page
         col = pos % COLS
@@ -322,63 +348,57 @@ def render_pdf(labels, cfg, out_pdf: Path):
 # ========================= MAIN ============================
 
 def parse_float_list(s: str) -> List[float]:
-    """Parse 'a,b,c' into [a,b,c]. Empty or None -> []."""
-    if s is None:
-        return []
-    s = s.strip()
-    if not s:
+    if s is None or not s.strip():
         return []
     return [float(x.strip()) for x in s.split(",")]
 
 def main():
-    ap = argparse.ArgumentParser(
-        description="Generate QSL label PDF from ADIF (Avery 3664, 3x8; per-column/row fine-tuning)."
-    )
-    ap.add_argument("--adif", required=True, help="Path to ADIF file (.adi)")
-    ap.add_argument("--out", required=True, help="Output PDF path")
+    ap = argparse.ArgumentParser(description="Generate QSL label PDF from ADIF (Avery 3664)")
+    ap.add_argument("--adif", required=True, help="Input ADIF file")
+    ap.add_argument("--out", required=True, help="Output PDF file")
 
-    # Debug / alignment aids
-    ap.add_argument("--outline", action="store_true", help="Draw faint label rectangles")
-    ap.add_argument("--guides", action="store_true", help="Draw baseline guides for table rows")
+    # Debug visuals
+    ap.add_argument("--outline", action="store_true", help="Draw label outlines")
+    ap.add_argument("--guides", action="store_true", help="Draw row guides")
+    ap.add_argument("--left-ticks", action="store_true", help="Draw thin ticks at each column's left edge")
 
-    # Optional: override per-column and per-row offsets from CLI
-    ap.add_argument("--col-offsets", type=str, default=None,
-                    help="Comma-separated mm offsets per column (e.g. '0.5,0,-0.3'); +right, -left")
-    ap.add_argument("--row-offsets", type=str, default=None,
-                    help="Comma-separated mm offsets per row (8 values on Avery 3664); +up, -down")
+    # Fine tuning
+    ap.add_argument("--col-offsets", type=str, default=None, help="Comma-separated mm offsets per column")
+    ap.add_argument("--row-offsets", type=str, default=None, help="Comma-separated mm offsets per row (8 values)")
+
+    # Dynamic columns override (optional)
+    ap.add_argument("--static-cols", action="store_true",
+                    help="Use static normalized widths instead of dynamic per-label widths")
 
     args = ap.parse_args()
 
-    # Apply debug toggles
-    if args.outline:
-        CONFIG["draw_label_outlines"] = True
-    if args.guides:
-        CONFIG["draw_table_guides"] = True
-
-    # Apply fine-tuning if provided
-    if args.col_offsets is not None:
+    # Apply flags
+    if args.outline: CONFIG["draw_label_outlines"] = True
+    if args.guides: CONFIG["draw_table_guides"] = True
+    if args.left_ticks: CONFIG["draw_cell_left_ticks"] = True
+    if args.col_offsets:
         offs = parse_float_list(args.col_offsets)
         if len(offs) != CONFIG["cols"]:
             raise ValueError(f"--col-offsets must have exactly {CONFIG['cols']} values")
         CONFIG["col_offsets_mm"] = offs
-    if args.row_offsets is not None:
+    if args.row_offsets:
         offs = parse_float_list(args.row_offsets)
         if len(offs) != CONFIG["rows"]:
             raise ValueError(f"--row-offsets must have exactly {CONFIG['rows']} values")
         CONFIG["row_offsets_mm"] = offs
+    if args.static_cols:
+        CONFIG["dynamic_col_widths"] = False
 
-    # Load ADIF
+    # Load ADIF and build rows
     adif_path = Path(args.adif)
     out_pdf = Path(args.out)
     text = adif_path.read_text(encoding="utf-8", errors="ignore")
     recs = parse_adif(text)
 
-    # Extract fields
-    rows: List[Dict[str, str]] = []
+    rows = []
     for r in recs:
         call = r.get("CALL", "").upper().strip()
-        if not call:
-            continue
+        if not call: continue
         date_raw = r.get("QSO_DATE", "") or r.get("QSO_DATE_OFF", "")
         time_raw = r.get("TIME_ON", "") or r.get("TIME_OFF", "")
         rows.append({
@@ -389,13 +409,11 @@ def main():
             "TIME": fmt_time(time_raw),
             "BAND": (r.get("BAND","") or "").upper().strip() or band_from_freq(r.get("FREQ","")),
             "MODE": norm_mode(r.get("MODE",""), r.get("SUBMODE","")),
-            "QSL":  qsl_value(r, CONFIG["qsl_received_keys"]),
+            "QSL": qsl_value(r, CONFIG["qsl_received_keys"]),
         })
 
-    # Build labels and render
     labels = build_labels(rows, CONFIG["rows_per_label"])
     render_pdf(labels, CONFIG, out_pdf)
-
     print(f"Done. Wrote: {out_pdf.resolve()}")
 
 if __name__ == "__main__":
