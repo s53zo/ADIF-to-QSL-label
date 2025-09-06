@@ -1,4 +1,4 @@
-# QSL Label Generator (Avery Zweckform 3664)
+# QSL Label Generator (Avery Zweckform 3664 but configurable)
 
 Generate **print-ready QSL labels** from your ADIF log.
 
@@ -24,7 +24,7 @@ Generate **print-ready QSL labels** from your ADIF log.
   2025-07-21 18:02 20M   FT8    PSE
   2025-07-22 19:40 40M   SSB    TNX
 
-  SY: Blondie, South Adriatic sea                   TNX & 73
+  Comment text                   TNX & 73
   ```
 
 ---
@@ -95,12 +95,6 @@ python make_qsl_labels.py   --adif "log.adi" --out "qsl_labels.pdf"   --col-offs
 | `--guides`        | Draw row guides (debug) |
 | `--col-offsets`   | Comma-separated offsets per column in mm (e.g. `"0.5,0,-0.3"`) |
 | `--row-offsets`   | Comma-separated offsets per row in mm (8 values for Avery 3664) |
-
----
-
-## Example Output
-
-![Example QSL Labels](docs/example.png)
 
 ---
 
