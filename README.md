@@ -1,4 +1,4 @@
-# QSL Label Generator — Avery Zweckform 3664
+# QSL Label Generator — Avery Zweckform 3664 (or any other)
 
 Generate **print-ready QSL labels** from your ADIF log.
 
