@@ -1,103 +1,160 @@
-# QSL Label Generator (Avery Zweckform 3664 but configurable)
+# QSL Label Generator — Avery Zweckform 3664
 
 Generate **print-ready QSL labels** from your ADIF log.
 
-- 📄 Outputs a **PDF** formatted for **Avery Zweckform 3664** (A4, 3×8 grid, 70×33.8 mm labels).
-- 📡 Groups QSOs by callsign (alphabetical).
-- 📝 Up to **4 QSOs per label** with fields: **Date | Time | Band | Mode | QSL**.
-- 🖨️ Supports **fine-tuning alignment** (per column & per row) to fix printer offsets.
-- ✍️ Automatic text shrinking prevents overflow into neighboring columns.
+- 📄 Outputs a **PDF** aligned for **Avery Zweckform 3664** (A4, 3×8, 70×33.8 mm).
+- 🧭 **Single-point config**: page → grid → offsets → label → table → typography → logic → debug.
+- 🧮 **Dynamic columns** (per label), always **left-aligned**, **shrink-only** (free space on the right).
+- 🎛️ Fine-tune **left/right page margins**, **global XY offsets**, **per-column** and **per-row** nudges.
+- 🧱 Fully configurable **columns**: include RST or any ADIF field by editing `columns`.
+- 🧪 Debug: **outlines**, **row guides**, **left-edge ticks** for quick calibration on plain paper.
 
----
-
-## Features
-
-- **Input**: ADIF log (`.adi`)
-- **Output**: PDF file
-- **Table format**:
-  ```
-  To Radio                  HISCALL
-
-  Date   Time   Band   Mode   QSL
-  2025-07-19 15:48 40M   SSB    PSE
-  2025-07-20 07:13 20M   CW     TNX
-  2025-07-21 18:02 20M   FT8    PSE
-  2025-07-22 19:40 40M   SSB    TNX
-
-  Comment text                   TNX & 73
-  ```
+> **Tip:** In the printer dialog select **Actual size / 100%** (no page scaling).
 
 ---
 
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/qsl-labels.git
-cd qsl-labels
-pip install reportlab
+pip install reportlab pyyaml
 ```
 
 ---
 
-## Usage
-
-### Basic run
+## Quick Start
 
 ```bash
 python make_qsl_labels.py --adif "log.adi" --out "qsl_labels.pdf"
 ```
 
-### Debug print
+**What you get** by default:
 
-Generate outlines and row guides (for test alignment on plain paper):
+- 3 columns × 8 rows of labels on A4
+- Left/right margins = **3 mm** (avoids printer clipping)
+- Global vertical offset = **+5 mm**
+- 4 QSOs per label
+- Columns: **Date | Time | Band | QSL | Mode**
+- Dynamic per-label widths; free space on the right if unused
+
+---
+
+## Configuration (single place)
+
+Open `make_qsl_labels.py` and edit the `CONFIG` dict at the top. Settings are grouped in the order you’ll calibrate:
+
+1. **PAGE**: paper size, label grid (3×8), margins, global offsets  
+2. **GRID FINE TUNING**: per-column/per-row shifts (mm)  
+3. **INSIDE LABEL**: padding (mm)  
+4. **TABLE**: rows per label, **columns** (headers + sources), sizing behavior  
+5. **TYPOGRAPHY**: fonts & sizes  
+6. **LOGIC**: QSL rules, SSB normalization  
+7. **DEBUG**: outline/guides/ticks for test prints  
+
+You can also supply a YAML file and override any fields:
 
 ```bash
-python make_qsl_labels.py --adif "log.adi" --out "qsl_labels.pdf" --outline --guides
+python make_qsl_labels.py --config config.yaml --adif "log.adi" --out "qsl_labels.pdf"
+```
+
+### Adding RST (or any ADIF field)
+
+Edit `CONFIG["columns"]` and add new entries:
+
+```python
+"columns": [
+  {"header": "Date", "source": "DATE"},
+  {"header": "Time", "source": "TIME"},
+  {"header": "Band", "source": "BAND"},
+  {"header": "RSTs", "source": "RST_SENT"},
+  {"header": "RSTr", "source": "RST_RCVD"},
+  {"header": "QSL",  "source": "QSL"},
+  {"header": "Mode", "source": "MODE"},
+]
+"min_col_mm":  [12, 10, 10, 6, 6, 6, 10]
+"static_col_mm":[20, 12, 12, 8, 8, 8, 18]
+```
+
+No other code changes are required.
+
+---
+
+## Useful CLI Flags
+
+```bash
+# Debug aids
+--outline            # draw label outlines
+--guides             # draw row baselines
+--left-ticks         # draw left edge tick inside each column (visual left alignment)
+
+# Page margins and global offsets
+--left-margin-mm 3   # override left page margin
+--right-margin-mm 3  # override right page margin
+--x-offset-mm -1.5   # global shift left/right
+--y-offset-mm  6     # global shift up/down
+
+# Fine-tuning per column/row
+--col-offsets "0,0,0"                # mm per column (3 values)
+--row-offsets "0,0,0,0,0,0,0,0"      # mm per row    (8 values)
+
+# Columns sizing
+--static-cols        # disable dynamic widths; use CONFIG.static_col_mm
+```
+
+Example:
+
+```bash
+python make_qsl_labels.py \
+  --adif "log.adi" \
+  --out "labels.pdf" \
+  --left-margin-mm 3 --right-margin-mm 3 \
+  --x-offset-mm -1.5 --y-offset-mm 6 \
+  --outline --left-ticks
 ```
 
 ---
 
-## Fine-Tuning Alignment
+## YAML Config (optional)
 
-Every printer is slightly different. You can adjust **columns** and **rows** independently in **millimeters**.
+Create `config.yaml` to override any fields in `CONFIG`:
 
-- **Per-column offsets**: shift each of the 3 columns left/right  
-- **Per-row offsets**: shift each of the 8 rows up/down  
+```yaml
+# config.yaml
+left_margin_mm: 3.0
+right_margin_mm: 3.0
+x_offset_mm: -1.0
+y_offset_mm: 6.0
 
-### Example
-
-```bash
-# Move column 1 → 0.6 mm right
-# Column 2 → unchanged
-# Column 3 → 0.4 mm left
-# Row 5 → 0.8 mm up
-python make_qsl_labels.py   --adif "log.adi" --out "qsl_labels.pdf"   --col-offsets "0.6,0,-0.4"   --row-offsets "0,0,0,0,0.8,0,0,0"   --outline
+rows_per_label: 4
+columns:
+  - { header: "Date", source: "DATE" }
+  - { header: "Time", source: "TIME" }
+  - { header: "Band", source: "BAND" }
+  - { header: "RSTs", source: "RST_SENT" }
+  - { header: "RSTr", source: "RST_RCVD" }
+  - { header: "QSL",  source: "QSL" }
+  - { header: "Mode", source: "MODE" }
+min_col_mm:  [12, 10, 10, 6, 6, 6, 10]
+static_col_mm:[20, 12, 12, 8, 8, 8, 18]
 ```
 
-### Adjustment tips
+Run with:
 
-1. Print with `--outline --guides` on plain paper.  
-2. Hold print against an actual Avery 3664 sheet in the light.  
-3. Measure where columns/rows are off.  
-4. Use `--col-offsets` and `--row-offsets` to nudge them.  
-5. Repeat until alignment is perfect.  
-6. Turn off debug flags and print on real labels.
+```bash
+python make_qsl_labels.py --config config.yaml --adif "log.adi" --out "labels.pdf"
+```
 
 ---
 
-## Options
+## Sample
 
-| Option            | Description |
-|-------------------|-------------|
-| `--adif PATH`     | Input ADIF log file |
-| `--out PATH`      | Output PDF file |
-| `--outline`       | Draw label borders (debug) |
-| `--guides`        | Draw row guides (debug) |
-| `--col-offsets`   | Comma-separated offsets per column in mm (e.g. `"0.5,0,-0.3"`) |
-| `--row-offsets`   | Comma-separated offsets per row in mm (8 values for Avery 3664) |
+A tiny `sample.adif` is included for quick testing:
+
+```bash
+python make_qsl_labels.py --adif sample.adif --out sample_labels.pdf --outline
+```
 
 ---
 
 ## License
 
-MIT – feel free to fork and adapt.
+MIT – free to use, fork, and adapt.

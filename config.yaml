@@ -1,0 +1,18 @@
+# Example config.yaml (optional). Any fields here override the script's CONFIG.
+# Delete keys you don't need to change.
+
+left_margin_mm: 3.0
+right_margin_mm: 3.0
+x_offset_mm: 0.0
+y_offset_mm: 5.0
+
+rows_per_label: 4
+columns:
+  - { header: "Date", source: "DATE" }
+  - { header: "Time", source: "TIME" }
+  - { header: "Band", source: "BAND" }
+  - { header: "QSL",  source: "QSL" }
+  - { header: "Mode", source: "MODE" }
+
+min_col_mm:   [12, 10, 10, 6, 10]
+static_col_mm:[20, 12, 12, 8, 18]
