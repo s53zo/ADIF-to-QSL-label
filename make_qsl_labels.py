@@ -70,8 +70,9 @@ CONFIG: Dict = {
     "footer_y_shift_mm": 2.0,       # raise both footers by this many mm (mm)
 
     # ----- TABLE (fully configurable columns) -----
+    # up to 4 QSOs per one callsign
     "rows_per_label": 4,
-
+    
     # Columns: each entry is {"header": "...", "source": "..."}
     # "source" can be one of computed keys: DATE, TIME, BAND, MODE, QSL
     # or any raw ADIF field name such as RST_SENT, RST_RCVD, OPERATOR, etc.
