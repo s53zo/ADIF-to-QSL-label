@@ -5,61 +5,136 @@
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-PZCLRVBKKT"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
+  function gtag(){dataLayer.push(arguments);} 
   gtag('js', new Date());
-
   gtag('config', 'G-PZCLRVBKKT');
 </script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0f172a" />
 <title>ADIF to QSL Labels helper</title>
 <style>
+  /* ===== Design tokens ===== */
   :root{
-    --bg:#0f172a; --panel:#111827; --ink:#e5e7eb; --muted:#9ca3af; --accent:#38bdf8; --border:#1f2937; --warn:#f59e0b; --good:#22c55e;
+    --bg:#0b1020;      /* page background */
+    --bg-accent:#0f172a; /* panels background */
+    --panel:#0f172a;   /* primary surface */
+    --panel-2:#0b1220; /* cards */
+    --ink:#e5e7eb;     /* text */
+    --muted:#9ca3af;   /* secondary text */
+    --accent:#38bdf8;  /* brand */
+    --accent-2:#22d3ee;/* secondary brand */
+    --border:#1f2937;  /* borders */
+    --ring:#60a5fa;    /* focus ring */
+    --warn:#f59e0b;    /* warning */
+    --good:#22c55e;    /* success */
+    --shadow: 0 8px 24px rgba(2,6,23,.35);
+    --radius: 14px;
   }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f7fb; --bg-accent:#eef2f7; --panel:#ffffff; --panel-2:#ffffff; --ink:#0b1220; --muted:#475569; --border:#d8dee9; --shadow:0 10px 24px rgba(2,6,23,.06); }
+    body{ background-image:none !important; }
+  }
+
+  /* ===== Base ===== */
   *{box-sizing:border-box}
-  body{margin:0; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink);}
-  .app{display:grid; grid-template-columns: 440px 1fr; gap:0; min-height:100vh}
-  aside{border-right:1px solid var(--border); background:var(--panel); padding:16px 20px; overflow:auto}
-  main{display:flex; flex-direction:column; height:100vh}
-  header{display:flex; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border); align-items:center}
-  header h1{font-size:16px; font-weight:600; margin:0 8px 0 0; color:#f1f5f9}
-  header .spacer{flex:1}
-  button, input[type="file"], select{
-    background:#0b2535; color:var(--ink); border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:14px; width:100%;
+  html,body{height:100%}
+  body{margin:0; font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; color:var(--ink); background:var(--bg);
+    /* Subtle patterned background */
+    background-image:
+      radial-gradient(60rem 60rem at 10% -10%, rgba(56,189,248,.10), transparent 60%),
+      radial-gradient(80rem 60rem at 110% 10%, rgba(34,211,238,.08), transparent 55%),
+      linear-gradient(transparent 0, transparent 99px, rgba(255,255,255,.03) 100px),
+      linear-gradient(90deg, transparent 0, transparent 99px, rgba(255,255,255,.03) 100px);
+    background-size: 100% 100%, 100% 100%, 100px 100px, 100px 100px;
+    background-position: center;
   }
-  button.primary{background:var(--accent); color:#032332; border-color:#0284c7; font-weight:700}
-  button.link{background:transparent; border:none; color:#93c5fd; padding:0; width:auto; cursor:pointer}
-  button:disabled{opacity:.5}
-  .grid{display:grid; gap:10px}
-  .section{border:1px solid var(--border); border-radius:12px; padding:12px}
-  .section h3{margin:0 0 8px 0; font-size:14px; color:#cbd5e1}
-  .row{display:grid; grid-template-columns: 1fr 200px; gap:8px; align-items:center}
-  .row2{display:grid; grid-template-columns: 1fr 1fr; gap:8px}
-  .row label{font-size:12px; color:#9ca3af}
-  input[type="text"], input[type="number"], input[type="date"]{width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:#0b1220; color:#e5e7eb}
-  .columns{display:grid; gap:8px}
-  .col-row{display:grid; grid-template-columns: 1fr 200px auto; gap:8px; align-items:center}
-  .col-row input, .col-row select{min-width:0}
-  .muted{color:#9ca3af; font-size:12px}
+  .app{display:grid; grid-template-columns: 420px 1fr; gap:0; min-height:100vh}
+  aside{border-right:1px solid var(--border); background:linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%); padding:18px 20px; overflow:auto; position:relative}
+  main{display:flex; flex-direction:column; height:100vh; backdrop-filter:saturate(130%)}
+
+  /* ===== Top bar ===== */
+  header{position:sticky; top:0; z-index:5; display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); align-items:center; background:rgba(11,16,32,.68); backdrop-filter: blur(8px) saturate(140%);}
+  header h1{font-size:16px; font-weight:700; margin:0 8px 0 0; color:#f1f5f9; letter-spacing:.3px}
+  header .spacer{flex:1}
+
+  /* ===== Cards / sections ===== */
+  .grid{display:grid; gap:14px}
+  .section{border:1px solid var(--border); border-radius:var(--radius); padding:14px; background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.00)); box-shadow:var(--shadow)}
+  .section h3{margin:0 0 10px 0; font-size:13px; color:#cbd5e1; letter-spacing:.04em; text-transform:uppercase}
+
+  /* ===== Form ===== */
+  label{font-size:12px; color:var(--muted)}
+  .row{display:grid; grid-template-columns: 1fr 210px; gap:10px; align-items:center}
+  .row2{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+  input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{
+    width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:#0c1426; color:var(--ink); transition:border-color .2s, box-shadow .2s, background .2s;
+  }
+  select{appearance:none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px); background-size:6px 6px, 6px 6px; background-repeat:no-repeat}
+  input[type="file"]{padding:8px 10px}
+  input[type="text"]::placeholder{color:#94a3b8}
+  input[type="range"]{ accent-color: var(--accent); }
+  input:focus, select:focus{ outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px rgba(96,165,250,.25)}
+  .muted{color:var(--muted); font-size:12px}
   .small{font-size:12px}
-  .warn{color:var(--warn); font-size:12px}
-  .good{color:var(--good); font-size:12px}
-  canvas{background:white; border:1px solid var(--border); border-radius:12px; image-rendering:-webkit-optimize-contrast}
-  .preview-wrap{padding:16px; overflow:auto; flex:1}
-  .controls{display:flex; gap:8px; align-items:center}
-  .tag{padding:2px 6px; border-radius:6px; background:#123; color:#aef; font-size:11px; margin-left:6px}
-  .help{font-size:12px; color:#9ca3af}
+  .help{font-size:12px; color:var(--muted)}
+
+  /* ===== Buttons ===== */
+  button{ --bpad:10px; --br:12px; border-radius:var(--br); padding:var(--bpad) 12px; font-size:14px; border:1px solid var(--border); color:var(--ink); background:linear-gradient(180deg, #0b2535, #0a1d2b); cursor:pointer; transition: transform .05s ease, background .25s ease, border-color .2s, box-shadow .2s; user-select:none }
+  button:hover{ background:linear-gradient(180deg, #0d2b40, #0b1f2e); border-color:#23324a }
+  button:active{ transform: translateY(1px) }
+  button:disabled{ opacity:.55; cursor:not-allowed; filter:saturate(.6)}
+  button.primary{ background: radial-gradient(120% 120% at 50% 0%, var(--accent) 0%, #1ea0d7 70%); color:#04161f; font-weight:800; border-color:#0ea5e9; box-shadow: 0 10px 18px rgba(34,211,238,.25), inset 0 -1px 0 rgba(2,132,199,.45) }
+  button.primary:hover{ filter: brightness(1.05)}
+  button.link{background:transparent; border:none; color:#93c5fd; padding:0; width:auto}
+
+  /* ===== Pills / tags ===== */
+  .tag{padding:2px 8px; border-radius:999px; background:linear-gradient(180deg, #10233a, #0c1b2e); color:#aee3ff; font-size:11px; margin-left:8px; border:1px solid #1c314b}
   .stats{font-size:12px; color:#cbd5e1; margin-left:12px}
-  .overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000}
-  .dialog{background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:16px; width:520px; max-width:90%}
-  .dialog h4{margin:0 0 8px 0; font-size:15px}
+
+  /* ===== Canvas preview ===== */
+  canvas{background:#ffffff; border:1px solid var(--border); border-radius:16px; image-rendering:-webkit-optimize-contrast; box-shadow: var(--shadow)}
+  .preview-wrap{padding:16px; overflow:auto; flex:1}
+  .controls{display:flex; gap:10px; align-items:center}
+
+  /* ===== Dialog / Overlay ===== */
+  .overlay{position:fixed; inset:0; background:rgba(2,6,23,.55); display:none; align-items:center; justify-content:center; z-index:1000; backdrop-filter: blur(2px)}
+  .dialog{background:var(--panel-2); border:1px solid var(--border); border-radius:16px; padding:16px; width:560px; max-width:92%; box-shadow: var(--shadow)}
+  .dialog h4{margin:0 0 10px 0; font-size:15px}
   .dialog .row{grid-template-columns: 1fr 1fr}
   .dialog .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
-  .banner{margin:8px 16px 0 16px; padding:10px 12px; border:1px dashed #334155; border-radius:10px; color:#cbd5e1; background:#0b1220;}
-  /* Layout editor toolbar */
-  .editorbar{display:flex; gap:8px; align-items:center; padding:8px 16px 0 16px}
-  .editorbar .chip{border:1px solid var(--border); background:#0b1220; padding:6px 8px; border-radius:10px; font-size:12px}
+
+  /* ===== Utility ===== */
+  .banner{margin:10px 16px 0 16px; padding:12px 14px; border:1px dashed #334155; border-radius:12px; color:#cbd5e1; background:linear-gradient(180deg, #0b1220, #0c1426)}
+  .warn{color:var(--warn); font-size:12px}
+  .good{color:var(--good); font-size:12px}
+
+  /* ===== Editor toolbar ===== */
+  .editorbar{display:flex; gap:10px; align-items:center; padding:8px 16px 0 16px}
+  .editorbar .chip{border:1px solid var(--border); background:#0b1220; padding:6px 10px; border-radius:999px; font-size:12px}
+
+  /* ===== Columns builder ===== */
+  .columns{display:grid; gap:10px}
+  .col-row{display:grid; grid-template-columns: 1fr 210px auto; gap:10px; align-items:center}
+  .col-row button.remove{ background:#1e293b; border-color:#2a3a53 }
+  .col-row button.remove:hover{ background:#233047 }
+
+  /* ===== Preview controls ===== */
+  #previewControls{ position:sticky; top:12px; z-index:2; background: linear-gradient(180deg, rgba(13,19,34,.75), rgba(13,19,34,.65)); backdrop-filter: blur(8px); padding:10px 12px; border:1px solid var(--border); border-radius:12px; box-shadow: var(--shadow) }
+
+  /* ===== Scrollbars ===== */
+  *{ scrollbar-color: #1f2b44 transparent; scrollbar-width: thin }
+  ::-webkit-scrollbar{ height:10px; width:10px }
+  ::-webkit-scrollbar-thumb{ background:#22314b; border-radius:10px }
+  ::-webkit-scrollbar-track{ background:transparent }
+
+  /* ===== Responsiveness ===== */
+  @media (max-width: 1200px){
+    .app{ grid-template-columns: 1fr }
+    aside{ position:sticky; top:0; z-index:4; border-right:none; border-bottom:1px solid var(--border) }
+    .row{ grid-template-columns: 1fr }
+    .col-row{ grid-template-columns: 1fr 1fr auto }
+  }
 </style>
 </head>
 <body>
@@ -322,6 +397,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
 <script>
+/***** IMPORTANT: JavaScript logic kept IDENTICAL to preserve functionality. *****/
 /* ===== Units & helpers ===== */
 const MM = 72 / 25.4; const A4 = { w:210, h:297 }; const LETTER = { w:215.9, h:279.4 };
 function mm2pt(mm){ return mm*MM; } function pt2mm(pt){ return pt/MM; }
@@ -373,7 +449,7 @@ function buildRows(recs){
   }
   return rows;
 }
-function parseYMD(s){ if(!s) return null; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s); if(!m) return null; return m[1]+m[2]+m[3]; }
+function parseYMD(s){ if(!s) return null; const m=/(^(\d{4})-(\d{2})-(\d{2})$)/.exec(s); if(!m) return null; return s.replace(/-/g,''); }
 function getQslFieldVal(rec, fieldSel){
   const up=(x)=>String(x||"").toUpperCase();
   if(fieldSel==="QSL_RCVD") return up(rec.QSL_RCVD);
@@ -428,22 +504,19 @@ function computeColWidths(ctx, cfg, qsoRows, labelWpt){
 
 /* ===== Config & layout ===== */
 let layoutState = null; // stores current layout (mm)
-
 function defaultLayout(cfg){
-  // build defaults from current paddings/shifts and label size
   const labelW_mm = (cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm)) / cfg.cols;
   const labelH_mm = cfg.labelHmm;
   const padX = cfg.padXmm, padY = cfg.padYmm;
   return {
     toRadio: { x_mm: padX, y_mm: padY + pt2mm(8) },
-    callsign:{ y_mm: padY + pt2mm(8), centerX: true }, // x locked unless unlockCallX
+    callsign:{ y_mm: padY + pt2mm(8), centerX: true },
     headers: { y_mm: padY + pt2mm(20) },
     table:   { y_mm: padY + pt2mm(32), lineGapPt: cfg.lineGapPt },
     footerL: { x_mm: padX, y_mm: labelH_mm - padY - pt2mm(2) - cfg.footerYShiftmm },
     footerR: { x_mm: labelW_mm - padX - cfg.footerRShiftmm, y_mm: labelH_mm - padY - pt2mm(2) - cfg.footerYShiftmm }
   };
 }
-
 function pageDims(name){ return (name==="LETTER")?LETTER:A4; }
 function readConfig(){
   const colRows=[...document.querySelectorAll('.col-row')];
@@ -496,16 +569,9 @@ function readConfig(){
       qslStatus: document.getElementById('fQslStatus').value || "ALL",
     }
   };
-  // init or adapt layoutState
-  if(!layoutState){
-    layoutState = defaultLayout(cfg);
-  }else{
-    // keep existing values, but ensure lineGap tracks cfg if not customized
-    if(layoutState.table && (layoutState.table.lineGapPt==null)) layoutState.table.lineGapPt = cfg.lineGapPt;
-  }
+  if(!layoutState){ layoutState = defaultLayout(cfg); }
+  else{ if(layoutState.table && (layoutState.table.lineGapPt==null)) layoutState.table.lineGapPt = cfg.lineGapPt; }
   cfg.layout = layoutState;
-
-  // reflect updated CSV lists back to UI
   document.getElementById('colOffsets').value = cfg.colOffsets.join(',');
   document.getElementById('rowOffsets').value = cfg.rowOffsets.join(',');
   document.getElementById('minColMM').value   = cfg.minColMM.join(',');
@@ -516,7 +582,6 @@ function readConfig(){
 /* ===== Preview & PDF use layout ===== */
 const canvas=document.getElementById('preview');
 let recs=[], rows=[], labels=[]; let currentPage=0; let adifFields=[]; let usingSample=true;
-
 function computeStats(cfg, baseRows, filteredRows){
   const per = cfg.cols * cfg.rows;
   const pages = Math.max(1, Math.ceil(labels.length / per));
@@ -528,7 +593,6 @@ function computeStats(cfg, baseRows, filteredRows){
   if(usingSample){ warn.textContent = "Sample data is shown. Upload your ADIF to replace it."; warn.style.display="block"; banner.style.display="block"; }
   else{ warn.style.display="none"; banner.style.display="none"; }
 }
-
 function computeLabelX0Y0(cfg, col, rowI, labelWpt, labelHpt){
   const leftMarginPt=mm2pt(cfg.marginLmm);
   const topMarginPt=mm2pt(cfg.marginTmm);
@@ -538,33 +602,24 @@ function computeLabelX0Y0(cfg, col, rowI, labelWpt, labelHpt){
   y0 += mm2pt(cfg.yOffmm) + mm2pt(cfg.rowOffsets[rowI]||0);
   return {x0,y0};
 }
-
 function renderOnePage(cfg, pageIdx){
   const ctx = setupHiDPICanvas(canvas, mm2pt(cfg.pageWmm), mm2pt(cfg.pageHmm), (parseInt(document.getElementById('zoom').value||"100",10)/100));
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,mm2pt(cfg.pageWmm),mm2pt(cfg.pageHmm));
   ctx.fillStyle="#000"; ctx.textBaseline="alphabetic";
-
   const usableWmm=cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm);
   const labelWpt=mm2pt(usableWmm / cfg.cols);
   const labelHpt=mm2pt(cfg.labelHmm);
-
   const perPage=cfg.cols*cfg.rows; const start=pageIdx*perPage; const end=Math.min(labels.length, start+perPage);
-
   const padXpt=mm2pt(cfg.padXmm), padYpt=mm2pt(cfg.padYmm);
-
   for(let idx=start; idx<end; idx++){
     const local=idx-start; const col=local % cfg.cols; const rowI=Math.floor(local / cfg.cols);
     const item=labels[idx];
     const isBlank = !item || !item[0] && (!item[1] || item[1].length===0);
     const call = isBlank ? "" : item[0];
     const chunk = isBlank ? [] : item[1];
-
     const {x0,y0}=computeLabelX0Y0(cfg,col,rowI,labelWpt,labelHpt);
-
     if(cfg.dbgOutline){ ctx.strokeStyle="#bbb"; ctx.lineWidth=0.5; ctx.strokeRect(x0,y0,labelWpt,labelHpt); }
     if(isBlank) continue;
-
-    // widths
     let colW;
     if(cfg.dynamicCols){
       colW = computeColWidths(metricsCanvas.getContext('2d'), {
@@ -577,9 +632,7 @@ function renderOnePage(cfg, pageIdx){
       const scale=labelWpt / mm2pt(sum);
       colW=cfg.staticColMM.map(mm=>mm2pt(mm)*scale);
     }
-
-    const L = cfg.layout; // all mm
-    // Top band
+    const L = cfg.layout; 
     ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
     ctx.fillText("To Radio", x0 + mm2pt(L.toRadio.x_mm), y0 + mm2pt(L.toRadio.y_mm));
     ctx.font=`bold ${cfg.sizeCallsign}px ${cfg.fontBody}`;
@@ -588,13 +641,9 @@ function renderOnePage(cfg, pageIdx){
       ? (x0 + labelWpt/2) : (x0 + mm2pt(L.callsign.x_mm ?? cfg.padXmm));
     ctx.fillText((call||"").toUpperCase(), callXpt, y0 + mm2pt(L.callsign.y_mm));
     ctx.textAlign="left";
-
-    // Headers
     ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
     let cx=x0; const headersY=y0 + mm2pt(L.headers.y_mm);
     for(let i=0;i<cfg.columns.length;i++){ ctx.fillText(cfg.columns[i].header, cx+padXpt, headersY); cx+=colW[i]; }
-
-    // Rows
     const firstLineY=y0 + mm2pt(L.table.y_mm);
     const lineGap=(L.table.lineGapPt ?? cfg.lineGapPt);
     ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
@@ -607,8 +656,6 @@ function renderOnePage(cfg, pageIdx){
         cx2+=colW[i];
       }
     }
-
-    // Footers
     ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
     ctx.textAlign="left";
     ctx.fillText(cfg.footerL, x0 + mm2pt(L.footerL.x_mm), y0 + mm2pt(L.footerL.y_mm));
@@ -617,7 +664,6 @@ function renderOnePage(cfg, pageIdx){
     ctx.textAlign="left";
   }
 }
-
 function shrinkAndDraw(ctx, text, x, y, maxW, font, minSize=5, step=0.3){
   let size=parseFloat(font.match(/(\d+(\.\d+)?)/)[0]); const family=font.replace(/^\s*\d+(\.\d+)?px\s*/,''); let w;
   while(true){ ctx.font=`${size}px ${family}`; w=ctx.measureText(text||"").width; if(w<=maxW || size<=minSize) break; size=Math.max(minSize,size-step); }
@@ -639,47 +685,36 @@ function recompute(){
   const cfg=readConfig();
   const filtered = applyFilters(rows, cfg.f);
   labels = buildLabelsWithOffset(filtered, cfg);
-
   const per=cfg.cols*cfg.rows; const pages=Math.max(1, Math.ceil(labels.length/per));
   currentPage = clamp(currentPage, 0, pages-1);
   computeStats(cfg, rows, filtered);
   if(!editorMode){ renderOnePage(cfg, currentPage); }
 }
-
 async function downloadPDF(){
   const cfg=readConfig(); const filtered = applyFilters(rows, cfg.f);
   const pdfLabels = buildLabelsWithOffset(filtered, cfg);
   if(filtered.length===0){ alert("No QSOs match the current filters."); return; }
-
   const { jsPDF } = window.jspdf;
   const dims=pageDims(cfg.pageSize);
   const doc=new jsPDF({ unit:"mm", format:[dims.w,dims.h], compress:true });
-
   const labelWpt=mm2pt((cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm)) / cfg.cols);
   const labelHpt=mm2pt(cfg.labelHmm);
   const per=cfg.cols*cfg.rows; const pages=Math.max(1, Math.ceil(pdfLabels.length/per));
-
   function pdfText(text,x_mm,y_mm,align="left",font="helvetica",style="normal",size=10){ doc.setFont(font,style); doc.setFontSize(size); doc.text(String(text??""),x_mm,y_mm,{align}); }
   function shrinkAndText(text,x_mm,y_mm,maxW_mm,font="courier",style="normal",startSize=8.2,minSize=5.0,step=0.3){ let sz=startSize; doc.setFont(font,style); doc.setFontSize(sz); while(doc.getTextWidth(String(text??""))>maxW_mm&&sz>minSize){ sz=Math.max(minSize,sz-step); doc.setFontSize(sz);} doc.text(String(text??""),x_mm,y_mm); }
-
   for(let p=0;p<pages;p++){
     if(p>0) doc.addPage([dims.w,dims.h],"portrait");
     const start=p*per, end=Math.min(pdfLabels.length, start+per);
-
     for(let idx=start; idx<end; idx++){
       const local=idx-start; const col=local%cfg.cols; const rowI=Math.floor(local/cfg.cols);
       const item=pdfLabels[idx];
       const isBlank = !item || !item[0] && (!item[1] || item[1].length===0);
-
       const {x0,y0} = computeLabelX0Y0(cfg,col,rowI,labelWpt,labelHpt);
       const x0_mm=pt2mm(x0), y0_mm=pt2mm(y0), labelW_mm=pt2mm(labelWpt), labelH_mm=pt2mm(labelHpt);
       const padX_mm=cfg.padXmm;
-
       if(cfg.dbgOutline){ doc.setDrawColor(187); doc.setLineWidth(0.1); doc.rect(x0_mm,y0_mm,labelW_mm,labelH_mm); doc.setDrawColor(0); }
       if(isBlank) continue;
-
       const [call, chunk]=item;
-      // widths (mm via pt)
       let colWpt;
       if(cfg.dynamicCols){
         colWpt = computeColWidths(metricsCanvas.getContext('2d'), {
@@ -691,23 +726,17 @@ async function downloadPDF(){
         const sum=cfg.staticColMM.reduce((a,b)=>a+b,0)||1; const scale=labelWpt/mm2pt(sum);
         colWpt=cfg.staticColMM.map(mm=>mm2pt(mm)*scale);
       }
-
       const L = cfg.layout;
-      // Top band
       pdfText("To Radio", x0_mm + L.toRadio.x_mm, y0_mm + L.toRadio.y_mm, "left", "helvetica", "normal", cfg.sizeToRadio);
       const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
       const callX_mm = (callAlign==="center") ? (x0_mm + labelW_mm/2) : (x0_mm + (L.callsign.x_mm ?? padX_mm));
       pdfText(String(call||"").toUpperCase(), callX_mm, y0_mm + L.callsign.y_mm, callAlign, "helvetica", "bold", cfg.sizeCallsign);
-
-      // Headers
       let cx_pt=x0;
       for(let i=0;i<cfg.columns.length;i++){
         const x_mm=pt2mm(cx_pt + mm2pt(padX_mm));
         pdfText(cfg.columns[i].header, x_mm, y0_mm + L.headers.y_mm, "left", "helvetica", "bold", cfg.sizeHeaders);
         cx_pt += colWpt[i];
       }
-
-      // Rows
       const firstLine_mm = y0_mm + L.table.y_mm;
       for(let r=0;r<cfg.rowsPerLabel;r++){
         const data=chunk[r]||null; let cx2_pt=x0;
@@ -720,8 +749,6 @@ async function downloadPDF(){
           cx2_pt += colWpt[i];
         }
       }
-
-      // Footers
       pdfText(cfg.footerL, x0_mm + L.footerL.x_mm, y0_mm + L.footerL.y_mm, "left", "helvetica", "normal", cfg.sizeFooter);
       pdfText(cfg.footerR, x0_mm + L.footerR.x_mm, y0_mm + L.footerR.y_mm, "right", "helvetica", "normal", cfg.sizeFooter);
     }
@@ -747,7 +774,7 @@ function resetDefaultColumns(){ const wrap=document.getElementById('columns'); w
 function syncColArraysToDefaults(){ document.getElementById('minColMM').value="12,10,10,6,10"; document.getElementById('staticColMM').value="20,12,12,8,18"; }
 function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
 
-/* ===== Sample data (random 1..rowsPerLabel per call) ===== */
+/* ===== Sample data ===== */
 function generateSampleRows(nLabels=10, maxRowsPerLabel=4){
   const calls=["9A3ST","K1ABC","G4XYZ","DL1AAA","EA7ZZ","I2QSL","F5HAM","OH2FIN","JA1DX","VK2CQ","ZS6RAD","LU5HAM"];
   const modes=["CW","SSB","FT8","FT4","RTTY"]; const bands=["20M","40M","30M","15M","10M","17M","12M","6M"];
@@ -781,8 +808,8 @@ function loadSample(){
 /* ===== Layout editor ===== */
 let editorMode = false;
 const layoutCanvas = document.getElementById('layoutEditor');
-let dragging = null; // {key, dx_pt, dy_pt}
-const handleSizePt = 20; // visual size of draggable box (pt)
+let dragging = null; 
+const handleSizePt = 20; 
 function toggleEditor(on){
   editorMode = on;
   document.getElementById('editorBar').style.display = on ? "flex" : "none";
@@ -791,56 +818,40 @@ function toggleEditor(on){
   document.getElementById('previewControls').style.display = on ? "none" : "flex";
   if(on){ renderEditor(); } else { recompute(); }
 }
-
 function currentLabelDims(cfg){
   const labelW_mm=(cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm))/cfg.cols;
   const labelH_mm=cfg.labelHmm;
   return {labelW_mm,labelH_mm};
 }
-
 function renderEditor(){
   const cfg=readConfig();
   const {labelW_mm,labelH_mm}=currentLabelDims(cfg);
-  // Big zoom for editor (e.g., 2x page scale but we render only the label area)
   const zoom=2;
   const ctx = setupHiDPICanvas(layoutCanvas, mm2pt(labelW_mm), mm2pt(labelH_mm), zoom);
-  // white background
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,mm2pt(labelW_mm),mm2pt(labelH_mm));
-  // outline + safe area
   ctx.strokeStyle="#bbb"; ctx.lineWidth=0.5; ctx.strokeRect(0,0,mm2pt(labelW_mm),mm2pt(labelH_mm));
-  // safe padding
   ctx.setLineDash([3,3]); ctx.strokeStyle="#d1d5db";
   ctx.strokeRect(mm2pt(cfg.padXmm), mm2pt(cfg.padYmm), mm2pt(labelW_mm-2*cfg.padXmm), mm2pt(labelH_mm-2*cfg.padYmm));
   ctx.setLineDash([]);
-
   const L=cfg.layout;
-  // draw elements text positions
   ctx.fillStyle="#000";
-  // To Radio
   ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
   ctx.fillText("To Radio", mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm));
-  // Callsign
   ctx.font=`bold ${cfg.sizeCallsign}px ${cfg.fontBody}`;
   const callXpt = (L.callsign.centerX && !document.getElementById('unlockCallX').checked)
     ? (mm2pt(labelW_mm)/2) : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
   ctx.textAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
   ctx.fillText("SAMPLECALL", callXpt, mm2pt(L.callsign.y_mm));
   ctx.textAlign="left";
-  // Headers line
   ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
   ctx.fillText("Date   Time   Band   QSL   Mode", mm2pt(cfg.padXmm), mm2pt(L.headers.y_mm));
-  // First row baseline
   ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
   ctx.fillText("2025-09-09  12:34  20M   TNX   CW", mm2pt(cfg.padXmm), mm2pt(L.table.y_mm));
-
-  // Footer texts
   ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
   ctx.fillText(cfg.footerL || "Left footer", mm2pt(L.footerL.x_mm), mm2pt(L.footerL.y_mm));
   ctx.textAlign="right";
   ctx.fillText(cfg.footerR || "TNX & 73", mm2pt(L.footerR.x_mm), mm2pt(L.footerR.y_mm));
   ctx.textAlign="left";
-
-  // Draw draggable handles
   drawHandle(ctx, mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm), "toRadio");
   drawHandle(ctx, callXpt,              mm2pt(L.callsign.y_mm), "callsign", (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "y" : "xy");
   drawHandle(ctx, mm2pt(cfg.padXmm),    mm2pt(L.headers.y_mm), "headers", "y");
@@ -855,19 +866,15 @@ function renderEditor(){
     ctx.fillText("Callsign X locked unless unlocked", 12, 54);
   }
 }
-
 function drawHandle(ctx, xpt, ypt, key, lock="xy"){
   ctx.save();
   ctx.fillStyle="#38bdf8aa"; ctx.strokeStyle="#0284c7"; ctx.lineWidth=1;
   const hs=handleSizePt/2;
   ctx.fillRect(xpt-hs, ypt-hs, handleSizePt, handleSizePt);
   ctx.strokeRect(xpt-hs, ypt-hs, handleSizePt, handleSizePt);
-  // store for hit-testing (we'll compute on pointer events)
   ctx.restore();
 }
-
 function hitTestHandle(cfg, xpt, ypt){
-  // recompute same positions used in renderEditor
   const {labelW_mm} = currentLabelDims(cfg);
   const L=cfg.layout;
   const hs=handleSizePt/2;
@@ -886,12 +893,10 @@ function hitTestHandle(cfg, xpt, ypt){
   }
   return null;
 }
-
 layoutCanvas.addEventListener('pointerdown', (e)=>{
   if(!editorMode) return;
   const cfg=readConfig();
-  const rect=layoutCanvas.getBoundingClientRect();
-  const dpr=layoutCanvas.width / layoutCanvas.style.width.replace("px",""); // scale used
+  const dpr=layoutCanvas.width / layoutCanvas.style.width.replace("px",""); 
   const x = e.offsetX / dpr, y = e.offsetY / dpr;
   const hit = hitTestHandle(cfg, x, y);
   if(hit){
@@ -902,30 +907,21 @@ layoutCanvas.addEventListener('pointerdown', (e)=>{
 layoutCanvas.addEventListener('pointermove', (e)=>{
   if(!editorMode || !dragging) return;
   const cfg=readConfig();
-  const rect=layoutCanvas.getBoundingClientRect();
   const dpr=layoutCanvas.width / layoutCanvas.style.width.replace("px",""); 
   const x = e.offsetX / dpr, y = e.offsetY / dpr;
   const {labelW_mm,labelH_mm}=currentLabelDims(cfg);
   const L=cfg.layout;
-
-  let nx = x - dragging.dx, ny = y - dragging.dy; // pt
-  // Convert to mm
+  let nx = x - dragging.dx, ny = y - dragging.dy; 
   let x_mm = pt2mm(nx), y_mm = pt2mm(ny);
-
-  // snapping (unless Alt pressed)
   const snap = parseFloat(document.getElementById('snapMM').value || "0.25");
   if(!e.altKey && snap>0){ x_mm = Math.round(x_mm/snap)*snap; y_mm = Math.round(y_mm/snap)*snap; }
-
-  // constrain inside padding box
   const xMin = cfg.padXmm, xMax = labelW_mm - cfg.padXmm;
   const yMin = cfg.padYmm, yMax = labelH_mm - cfg.padYmm;
-
   if(dragging.key==="toRadio"){
     if(dragging.lock!=="y") L.toRadio.x_mm = clamp(x_mm, xMin, xMax);
     if(dragging.lock!=="x") L.toRadio.y_mm = clamp(y_mm, yMin, yMax);
   }else if(dragging.key==="callsign"){
     if((L.callsign.centerX && !document.getElementById('unlockCallX').checked)){
-      // only Y
       L.callsign.y_mm = clamp(y_mm, yMin, yMax);
     }else{
       L.callsign.x_mm = clamp(x_mm, xMin, xMax);
@@ -942,7 +938,7 @@ layoutCanvas.addEventListener('pointermove', (e)=>{
     L.footerR.x_mm = clamp(x_mm, xMin, xMax);
     L.footerR.y_mm = clamp(y_mm, yMin, yMax);
   }
-  layoutState = L; // persist
+  layoutState = L; 
   renderEditor();
 });
 layoutCanvas.addEventListener('pointerup', (e)=>{ dragging=null; layoutCanvas.releasePointerCapture?.(e.pointerId); });
@@ -964,16 +960,13 @@ function applyConfigToUI(cfg){
   if(cfg.rowOffsets) document.getElementById('rowOffsets').value = cfg.rowOffsets.join(",");
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
   if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
-  // layout is not edited via simple inputs; it’s saved/loaded in config JSON and via editor
 }
-
 function autoResizeOffsetCSVs(){
   const cols=+(document.getElementById('cols').value||3);
   const rowsCount=+(document.getElementById('rows').value||8);
   function fitCsv(id,len){ const arr=parseCSVfloats(document.getElementById(id).value); if(arr.length<len) arr.push(...Array(len-arr.length).fill(0)); if(arr.length>len) arr.length=len; document.getElementById(id).value = arr.join(','); }
   fitCsv('colOffsets', cols); fitCsv('rowOffsets', rowsCount);
 }
-
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
     if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor"].includes(el.id)) return;
@@ -981,23 +974,18 @@ function bindInputs(){
     el.addEventListener('change', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
   });
   document.getElementById('zoom').addEventListener('input', recompute);
-
   document.getElementById('addCol').onclick=()=> openPicker();
   document.getElementById('resetCols').onclick=()=>{ resetDefaultColumns(); syncColArraysToDefaults(); recompute(); };
   document.getElementById('pickCancel').onclick=()=> closePicker();
   document.getElementById('pickOk').onclick=()=>{ const h=document.getElementById('pickHeader').value||"Header"; const s=document.getElementById('pickSource').value||"DATE"; addColumnRow(h,s); closePicker(); recompute(); };
-
   document.getElementById('prevPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.max(0,currentPage-1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
   document.getElementById('nextPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.min(pages-1,currentPage+1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
-
   document.getElementById('adifFile').addEventListener('change', async (e)=>{
     const f=e.target.files?.[0]; if(!f) return; const txt=await f.text();
     const recsRaw=parseADIF(txt); recs=recsRaw; rows=buildRows(recs);
-    // discover fields
     const tags=new Set(); recs.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
     adifFields=Array.from(tags).sort();
     usingSample=false; currentPage=0;
-    // update column dropdowns with new fields
     document.querySelectorAll('.col-row .col-s').forEach(sel=>{
       const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","QSL","MODE"]; const seen=new Set();
       [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
@@ -1016,16 +1004,12 @@ function bindInputs(){
       });
     } catch(e){ /* no-op */ }
   });
-
   document.getElementById('downloadBtn').onclick=downloadPDF;
   document.getElementById('saveCfg').onclick=()=>{ const cfg=readConfig(); downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'})); };
   document.getElementById('loadCfg').addEventListener('change', async e=>{
     const f=e.target.files?.[0]; if(!f) return; const txt=await f.text(); try{ const obj=JSON.parse(txt); applyConfigToUI(obj); if(obj.layout) layoutState=obj.layout; autoResizeOffsetCSVs(); recompute(); }catch{ alert("Invalid config JSON"); }
   });
-
   document.getElementById('reloadSample').onclick=()=> loadSample();
-
-  // Layout editor buttons
   document.getElementById('editLayoutBtn').onclick=()=> toggleEditor(true);
   document.getElementById('resetLayout').onclick=()=>{ const cfg=readConfig(); layoutState = defaultLayout(cfg); renderEditor(); };
   document.getElementById('applyLayout').onclick=()=>{ toggleEditor(false); };
@@ -1043,14 +1027,10 @@ function openPicker(){
 function closePicker(){ picker.style.display="none"; }
 
 /* ===== Boot ===== */
-function resetDefaultColumns(){ const wrap=document.getElementById('columns'); wrap.innerHTML=""; [["Date","DATE"],["Time","TIME"],["Band","BAND"],["QSL","QSL"],["Mode","MODE"]].forEach(([h,s])=>addColumnRow(h,s)); }
-function syncColArraysToDefaults(){ document.getElementById('minColMM').value="12,10,10,6,10"; document.getElementById('staticColMM').value="20,12,12,8,18"; }
-function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
-
 resetDefaultColumns();
 syncColArraysToDefaults();
 bindInputs();
-loadSample(); // sample on first open
+loadSample();
 </script>
 </body>
 </html>
