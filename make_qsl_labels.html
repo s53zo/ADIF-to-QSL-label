@@ -1004,6 +1004,17 @@ function bindInputs(){
       if(keep) sel.value=keep;
     });
     recompute();
+    try {
+      const uniqueCalls = new Set((rows||[]).map(r=>r.CALL)).size;
+      gtag('event', 'adif_upload', {
+        file_name: f.name,
+        file_ext: (f.name.split('.').pop()||'').toLowerCase(),
+        file_size_bytes: f.size || 0,
+        qso_rows: rows?.length || 0,
+        unique_calls: uniqueCalls,
+        sample_data_used: usingSample ? 'yes' : 'no'
+      });
+    } catch(e){ /* no-op */ }
   });
 
   document.getElementById('downloadBtn').onclick=downloadPDF;
