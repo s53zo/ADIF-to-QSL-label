@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-PZCLRVBKKT"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -270,6 +269,9 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
 
   <main>
     <header>
+      <a href="https://s53zo.github.io/ADIF-to-QSL-label/" style="margin-right: 10px;">
+        <img src="https://s53zo.github.io/ADIF-to-QSL-label/ADIFtoQSL.jpg" alt="Logo" style="height: 36px; vertical-align: middle; border-radius: 6px;">
+      </a>
       <h1>QSL Labels</h1>
       <span id="stats" class="stats">QSOs: 0 | Labels: 0 | Pages: 0</span>
       <div class="spacer"></div>
@@ -277,7 +279,6 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
       <button id="downloadBtn" class="primary" disabled>Download PDF</button>
     </header>
 
-    <!-- Editor toolbar -->
     <div id="editorBar" class="editorbar" style="display:none">
       <span class="small muted">Visual Layout Editor</span>
       <span class="chip">Snap (mm):
@@ -304,7 +305,6 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
     </div>
 
     <div class="preview-wrap">
-      <!-- Multi-label preview -->
       <div id="previewControls" class="controls" style="margin-bottom:10px">
         <button id="prevPage">⟨</button>
         <span class="small" id="pageInfo">Page 1 / 1</span>
@@ -315,7 +315,6 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
       </div>
       <canvas id="preview"></canvas>
 
-      <!-- Single-label layout editor canvas -->
       <canvas id="layoutEditor" style="display:none; margin-top:12px"></canvas>
 
       <p class="help">Preview is WYSIWYG: same math as the PDF. Use <b>Actual size / 100%</b> when printing the downloaded PDF.</p>
@@ -323,7 +322,6 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
   </main>
 </div>
 
-<!-- column picker -->
 <div id="picker" class="overlay">
   <div class="dialog">
     <h4>Add column</h4>
