@@ -182,7 +182,7 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
         <div class="row"><label>Label height (mm)</label><input id="cardLabelHeight" type="number" step="0.5" value="35"></div>
         <div class="row"><label>Label X offset (mm)</label><input id="cardLabelX" type="number" step="0.5" value="0"></div>
         <div class="row"><label>Label Y offset (mm)</label><input id="cardLabelY" type="number" step="0.5" value="0"></div>
-        <div class="row"><label>Label rotation (deg)</label><input id="cardLabelRotation" type="number" step="0.1" value="0"></div>
+        <div class="row"><label>Label rotation (deg)</label><input id="cardLabelRotation" type="number" step="0.5" value="0"></div>
       </div>
 
       <div class="section">
@@ -219,8 +219,8 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
             <option value="0">Off (stretch to fill)</option>
           </select>
         </div>
-        <div class="row"><label>Slack (pt)</label><input id="slackPt" type="number" step="0.1" value="2"></div>
-        <div class="row"><label>Line gap (pt)</label><input id="lineGap" type="number" step="0.1" value="9"></div>
+        <div class="row"><label>Slack (pt)</label><input id="slackPt" type="number" step="0.5" value="2"></div>
+        <div class="row"><label>Line gap (pt)</label><input id="lineGap" type="number" step="0.5" value="9"></div>
 
         <div class="columns" id="columns">
           <div class="muted">Columns (header + source). Defaults match Avery 3664.</div>
@@ -268,11 +268,11 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
             <option>Georgia, Times, serif</option>
           </select>
         </div>
-        <div class="row"><label>To Radio (pt)</label><input id="sizeToRadio" type="number" step="0.1" value="7.5"></div>
-        <div class="row"><label>Callsign (pt)</label><input id="sizeCallsign" type="number" step="0.1" value="14"></div>
-        <div class="row"><label>Headers (pt)</label><input id="sizeHeaders" type="number" step="0.1" value="7.2"></div>
-        <div class="row"><label>Rows (pt)</label><input id="sizeRows" type="number" step="0.1" value="8.2"></div>
-        <div class="row"><label>Footer (pt)</label><input id="sizeFooter" type="number" step="0.1" value="7.2"></div>
+        <div class="row"><label>To Radio (pt)</label><input id="sizeToRadio" type="number" step="0.5" value="7.5"></div>
+        <div class="row"><label>Callsign (pt)</label><input id="sizeCallsign" type="number" step="0.5" value="14"></div>
+        <div class="row"><label>Headers (pt)</label><input id="sizeHeaders" type="number" step="0.5" value="7.2"></div>
+        <div class="row"><label>Rows (pt)</label><input id="sizeRows" type="number" step="0.5" value="8.2"></div>
+        <div class="row"><label>Footer (pt)</label><input id="sizeFooter" type="number" step="0.5" value="7.2"></div>
       </div>
 
       <div class="section">
@@ -307,7 +307,7 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
       <span class="chip">Snap (mm):
         <select id="snapMM" style="width:auto">
           <option value="0">None</option>
-          <option value="0.1">0.1</option>
+          <option value="0.5">0.5</option>
           <option value="0.25" selected>0.25</option>
           <option value="0.5">0.5</option>
           <option value="1">1.0</option>
@@ -490,7 +490,7 @@ function defaultLayout(cfg){
   const labelW_mm = (cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : (cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm)) / cfg.cols;
   const labelH_mm = (cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : cfg.labelHmm;
   const padX = cfg.padXmm, padY = cfg.padYmm;
-  return {
+  const layout = {
     toRadio: { x_mm: padX, y_mm: padY + pt2mm(8) },
     callsign:{ y_mm: padY + pt2mm(8), centerX: true },
     headers: { y_mm: padY + pt2mm(20) },
@@ -498,6 +498,8 @@ function defaultLayout(cfg){
     footerL: { x_mm: padX, y_mm: labelH_mm - padY - pt2mm(2) - cfg.footerYShiftmm },
     footerR: { x_mm: labelW_mm - padX - cfg.footerRShiftmm, y_mm: labelH_mm - padY - pt2mm(2) - cfg.footerYShiftmm }
   };
+  layout._custom = false;
+  return layout;
 }
 function pageDims(name){ return (name==="LETTER")?LETTER:A4; }
 function readConfig(){
@@ -577,8 +579,10 @@ function readConfig(){
     cfg.rows = 1;
     cfg.labelHmm = cardLabelHeight;
   }
-  if(!layoutState){ layoutState = defaultLayout(cfg); }
-  else{ if(layoutState.table && (layoutState.table.lineGapPt==null)) layoutState.table.lineGapPt = cfg.lineGapPt; }
+  if(!layoutState || !layoutState._custom){
+    layoutState = defaultLayout(cfg);
+  }
+  if(layoutState.table){ layoutState.table.lineGapPt = cfg.lineGapPt; }
   cfg.layout = layoutState;
   document.getElementById('colOffsets').value = cfg.colOffsets.join(',');
   document.getElementById('rowOffsets').value = cfg.rowOffsets.join(',');
@@ -1021,6 +1025,7 @@ layoutCanvas.addEventListener('pointermove', (e)=>{
     L.footerR.x_mm = clamp(x_mm, xMin, xMax);
     L.footerR.y_mm = clamp(y_mm, yMin, yMax);
   }
+  L._custom = true;
   layoutState = L; 
   renderEditor();
 });
