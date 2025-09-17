@@ -1,5 +1,7 @@
 # QSL Label Generator — Avery Zweckform 3664 (or any other)
 
+Github URL: https://github.com/s53zo/ADIF-to-QSL-label
+
 Generate **print-ready QSL labels** from your ADIF log.
 
 - 📄 Outputs a **PDF** aligned for **Avery Zweckform 3664** (A4, 3×8, 70×33.8 mm).
