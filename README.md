@@ -2,6 +2,8 @@
 
 Github URL: [https://github.com/s53zo/ADIF-to-QSL-label]https://github.com/s53zo/ADIF-to-QSL-label
 
+There is a html and python version of the tool.
+
 Generate **print-ready QSL labels** from your ADIF log.
 
 - 📄 Outputs a **PDF** aligned for **Avery Zweckform 3664** (A4, 3×8, 70×33.8 mm).
