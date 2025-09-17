@@ -64,6 +64,10 @@ button.primary:hover{background:#1d4ed8}
 canvas{background:#ffffff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow)}
 .preview-wrap{padding:16px; overflow:auto; flex:1; background:var(--panel-2)}
 .controls{display:flex; gap:10px; align-items:center}
+.overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,0.65); z-index:200}
+.overlay .dialog{min-width:280px; padding:18px; border-radius:var(--radius); box-shadow:var(--shadow)}
+.overlay .row{display:flex; gap:12px; margin-bottom:12px}
+.overlay .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:10px}
 
 .banner{margin:10px 16px 0 16px; padding:12px 14px; border-radius:10px; background:#e0f2fe; color:#0369a1; font-size:13px}
 .warn{color:var(--warn); font-size:12px}
