@@ -399,7 +399,38 @@ function parseADIF(text){
 }
 function fmtDate(s){ if(!s) return ""; s=s.trim(); return (s.length>=8&&/^\d{8}/.test(s))?`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`:s; }
 function fmtTime(s){ if(!s) return ""; s=s.trim(); return (s.length>=4&&/^\d{4}/.test(s))?`${s.slice(0,2)}:${s.slice(2,4)}`:s; }
-function bandFromFreq(freq){ if(!freq) return ""; const f=parseFloat(freq); if(isNaN(f)) return ""; const B=[[1.8,2.0,"160M"],[3.5,4.0,"80M"],[5.3,5.406,"60M"],[7.0,7.3,"40M"],[10.1,10.15,"30M"],[14.0,14.35,"20M"],[18.068,18.168,"17M"],[21.0,21.45,"15M"],[24.89,24.99,"12M"],[28.0,29.7,"10M"],[50,54,"6M"],[70,71,"4M"],[144,148,"2M"],[420,450,"70CM"]]; for(const [lo,hi,b] of B){ if(f>=lo&&f<=hi) return b; } return ""; }
+function bandFromFreq(freq){
+  if(!freq) return "";
+  const f=parseFloat(freq);
+  if(isNaN(f)) return "";
+  const B=[
+    [0.1357,0.1378,"2200M"],
+    [0.472,0.479,"630M"],
+    [1.8,2.0,"160M"],
+    [3.5,4.0,"80M"],
+    [5.3,5.406,"60M"],
+    [7.0,7.3,"40M"],
+    [10.1,10.15,"30M"],
+    [14.0,14.35,"20M"],
+    [18.068,18.168,"17M"],
+    [21.0,21.45,"15M"],
+    [24.89,24.99,"12M"],
+    [28.0,29.7,"10M"],
+    [50,54,"6M"],
+    [70,71,"4M"],
+    [144,148,"2M"],
+    [219,225,"1.25M"],
+    [420,450,"70CM"],
+    [902,928,"33CM"],
+    [1240,1300,"23CM"],
+    [2300,2450,"13CM"],
+    [3300,3500,"9CM"],
+    [5650,5925,"6CM"],
+    [10000,10500,"3CM"]
+  ];
+  for(const [lo,hi,b] of B){ if(f>=lo && f<=hi) return b; }
+  return "";
+}
 function normMode(mode,submode){ mode=(mode||"").toUpperCase().trim(); submode=(submode||"").toUpperCase().trim(); if(submode) return submode; if(mode==="USB"||mode==="LSB") return "SSB"; return mode; }
 function qslValue(rec){ for(const k of ["QSL_RCVD","LOTW_QSL_RCVD","EQSL_QSL_RCVD"]){ if((rec[k]||"").toUpperCase()==="Y") return "TNX"; } return "PSE"; }
 
@@ -410,10 +441,17 @@ function buildRows(recs){
     const call=(r.CALL||"").toUpperCase().trim(); if(!call) continue;
     const date_raw=r.QSO_DATE||r.QSO_DATE_OFF||"";
     const time_raw=r.TIME_ON||r.TIME_OFF||"";
+    let band=(r.BAND||"").toUpperCase().trim();
+    if(!band){ band = bandFromFreq(r.FREQ); }
+    const propMode = (r.PROP_MODE||"").toUpperCase();
+    const satName = (r.SAT_NAME||"").trim();
+    if((!band || band==="") && (propMode.includes("SAT") || satName)){
+      band = "SAT";
+    }
     rows.push({
       CALL:call, _DATE_RAW:date_raw, _TIME_RAW:time_raw,
       DATE:fmtDate(date_raw), TIME:fmtTime(time_raw),
-      BAND:(r.BAND||"").toUpperCase().trim() || bandFromFreq(r.FREQ),
+      BAND:band,
       MODE:normMode(r.MODE,r.SUBMODE),
       QSL:qslValue(r), ...r
     });
