@@ -34,6 +34,8 @@
 }
 
 body{margin:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, Roboto, Helvetica, Arial; background:var(--bg); color:var(--ink)}
+body.card-mode .mode-labels-only{display:none !important}
+body:not(.card-mode) .mode-card-only{display:none !important}
 .app{display:grid; grid-template-columns: 380px 1fr; min-height:100vh}
 aside{border-right:1px solid var(--border); background:var(--panel); padding:18px 20px; overflow:auto}
 main{display:flex; flex-direction:column; height:100vh}
@@ -139,21 +141,27 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
         <p class="help">Filters apply live to preview & PDF.</p>
       </div>
 
-      <div class="section">
+      <div class="section" id="pageSection">
         <h3>Page & Start Position</h3>
-        <div class="row"><label>Page Size</label>
+        <div class="row"><label>Output mode</label>
+          <select id="outputMode">
+            <option value="labels" selected>Label sheets</option>
+            <option value="qslCard">Direct QSL card</option>
+          </select>
+        </div>
+        <div class="row mode-labels-only"><label>Page Size</label>
           <select id="pageSize">
             <option value="A4" selected>A4 (210×297mm)</option>
             <option value="LETTER">Letter (8.5×11")</option>
           </select>
         </div>
-        <div class="row"><label>Cols</label><input id="cols" type="number" value="3" min="1"></div>
-        <div class="row"><label>Rows</label><input id="rows" type="number" value="8" min="1"></div>
-        <div class="row"><label>Label height (mm)</label><input id="labelH" type="number" step="0.1" value="33.8"></div>
-        <div class="row"><label>Left margin (mm)</label><input id="marginL" type="number" step="0.1" value="3"></div>
-        <div class="row"><label>Right margin (mm)</label><input id="marginR" type="number" step="0.1" value="3"></div>
-        <div class="row"><label>Top margin (fixed)</label><input id="marginT" type="number" step="0.1" value="3" disabled></div>
-        <div class="row2">
+        <div class="row mode-labels-only"><label>Cols</label><input id="cols" type="number" value="3" min="1"></div>
+        <div class="row mode-labels-only"><label>Rows</label><input id="rows" type="number" value="8" min="1"></div>
+        <div class="row mode-labels-only"><label>Label height (mm)</label><input id="labelH" type="number" step="0.1" value="33.8"></div>
+        <div class="row mode-labels-only"><label>Left margin (mm)</label><input id="marginL" type="number" step="0.1" value="3"></div>
+        <div class="row mode-labels-only"><label>Right margin (mm)</label><input id="marginR" type="number" step="0.1" value="3"></div>
+        <div class="row mode-labels-only"><label>Top margin (fixed)</label><input id="marginT" type="number" step="0.1" value="3" disabled></div>
+        <div class="row2 mode-labels-only">
           <div>
             <label class="small muted">Start at row</label>
             <input id="startRow" type="number" min="1" value="1" />
@@ -163,6 +171,17 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
             <input id="startCol" type="number" min="1" value="1" />
           </div>
         </div>
+      </div>
+
+      <div class="section mode-card-only" id="cardSection">
+        <h3>QSL Card</h3>
+        <div class="row"><label>Card width (mm)</label><input id="cardWidth" type="number" step="0.1" value="150"></div>
+        <div class="row"><label>Card height (mm)</label><input id="cardHeight" type="number" step="0.1" value="100"></div>
+        <div class="row"><label>Label width (mm)</label><input id="cardLabelWidth" type="number" step="0.1" value="70"></div>
+        <div class="row"><label>Label height (mm)</label><input id="cardLabelHeight" type="number" step="0.1" value="35"></div>
+        <div class="row"><label>Label X offset (mm)</label><input id="cardLabelX" type="number" step="0.1" value="0"></div>
+        <div class="row"><label>Label Y offset (mm)</label><input id="cardLabelY" type="number" step="0.1" value="0"></div>
+        <div class="row"><label>Label rotation (deg)</label><input id="cardLabelRotation" type="number" step="0.1" value="0"></div>
       </div>
 
       <div class="section">
@@ -467,8 +486,8 @@ function computeColWidths(ctx, cfg, qsoRows, labelWpt){
 /* ===== Config & layout ===== */
 let layoutState = null; // stores current layout (mm)
 function defaultLayout(cfg){
-  const labelW_mm = (cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm)) / cfg.cols;
-  const labelH_mm = cfg.labelHmm;
+  const labelW_mm = (cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : (cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm)) / cfg.cols;
+  const labelH_mm = (cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : cfg.labelHmm;
   const padX = cfg.padXmm, padY = cfg.padYmm;
   return {
     toRadio: { x_mm: padX, y_mm: padY + pt2mm(8) },
@@ -481,12 +500,26 @@ function defaultLayout(cfg){
 }
 function pageDims(name){ return (name==="LETTER")?LETTER:A4; }
 function readConfig(){
+  const mode=(document.getElementById('outputMode')?.value)||'labels';
   const colRows=[...document.querySelectorAll('.col-row')];
   const columns=colRows.map(r=>({ header:r.querySelector('.col-h')?.value.trim()||"Col", source:r.querySelector('.col-s')?.value.trim()||"DATE" }));
   function fitCsv(csv,len,fill=0){ const arr=parseCSVfloats(csv); if(arr.length<len) arr.push(...Array(len-arr.length).fill(fill)); if(arr.length>len) arr.length=len; return arr; }
-  const pm=document.getElementById('pageSize').value, dims=pageDims(pm);
+  const pm=document.getElementById('pageSize')?.value||'A4';
+  const cardWidth=parseFloat(document.getElementById('cardWidth')?.value||"150");
+  const cardHeight=parseFloat(document.getElementById('cardHeight')?.value||"100");
+  const cardLabelWidth=parseFloat(document.getElementById('cardLabelWidth')?.value||String(cardWidth));
+  const cardLabelHeight=parseFloat(document.getElementById('cardLabelHeight')?.value||String(cardHeight));
+  const cardLabelX=parseFloat(document.getElementById('cardLabelX')?.value||"0");
+  const cardLabelY=parseFloat(document.getElementById('cardLabelY')?.value||"0");
+  const cardLabelRotation=parseFloat(document.getElementById('cardLabelRotation')?.value||"0");
+  const dims=pageDims(pm);
+  const pageWmm = (mode==='qslCard') ? cardWidth : dims.w;
+  const pageHmm = (mode==='qslCard') ? cardHeight : dims.h;
   const cfg={
-    pageSize:pm, pageWmm:dims.w, pageHmm:dims.h,
+    mode,
+    pageSize: pm,
+    pageWmm,
+    pageHmm,
     cols:+(document.getElementById('cols').value||3),
     rows:+(document.getElementById('rows').value||8),
     labelHmm:parseFloat(document.getElementById('labelH').value||"33.8"),
@@ -522,6 +555,13 @@ function readConfig(){
     sizeRows:parseFloat(document.getElementById('sizeRows').value||"8.2"),
     sizeFooter:parseFloat(document.getElementById('sizeFooter').value||"7.2"),
     dbgOutline:document.getElementById('dbgOutline').value==="1",
+    cardWidthmm:cardWidth,
+    cardHeightmm:cardHeight,
+    cardLabelWidthmm:cardLabelWidth,
+    cardLabelHeightmm:cardLabelHeight,
+    cardLabelXmm:cardLabelX,
+    cardLabelYmm:cardLabelY,
+    cardLabelRotationDeg:cardLabelRotation,
     f:{
       from: parseYMD(document.getElementById('fDateFrom').value || ""),
       to:   parseYMD(document.getElementById('fDateTo').value || ""),
@@ -531,6 +571,11 @@ function readConfig(){
       qslStatus: document.getElementById('fQslStatus').value || "ALL",
     }
   };
+  if(mode==='qslCard'){
+    cfg.cols = 1;
+    cfg.rows = 1;
+    cfg.labelHmm = cardLabelHeight;
+  }
   if(!layoutState){ layoutState = defaultLayout(cfg); }
   else{ if(layoutState.table && (layoutState.table.lineGapPt==null)) layoutState.table.lineGapPt = cfg.lineGapPt; }
   cfg.layout = layoutState;
@@ -556,6 +601,9 @@ function computeStats(cfg, baseRows, filteredRows){
   else{ warn.style.display="none"; banner.style.display="none"; }
 }
 function computeLabelX0Y0(cfg, col, rowI, labelWpt, labelHpt){
+  if(cfg.mode==='qslCard'){
+    return { x0: mm2pt(cfg.cardLabelXmm), y0: mm2pt(cfg.cardLabelYmm) };
+  }
   const leftMarginPt=mm2pt(cfg.marginLmm);
   const topMarginPt=mm2pt(cfg.marginTmm);
   let x0=leftMarginPt + col*labelWpt;
@@ -568,9 +616,16 @@ function renderOnePage(cfg, pageIdx){
   const ctx = setupHiDPICanvas(canvas, mm2pt(cfg.pageWmm), mm2pt(cfg.pageHmm), (parseInt(document.getElementById('zoom').value||"100",10)/100));
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,mm2pt(cfg.pageWmm),mm2pt(cfg.pageHmm));
   ctx.fillStyle="#000"; ctx.textBaseline="alphabetic";
+  if(cfg.dbgOutline && cfg.mode==='qslCard'){
+    ctx.save();
+    ctx.strokeStyle="#94a3b8";
+    ctx.lineWidth=0.8;
+    ctx.strokeRect(0,0,mm2pt(cfg.pageWmm),mm2pt(cfg.pageHmm));
+    ctx.restore();
+  }
   const usableWmm=cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm);
-  const labelWpt=mm2pt(usableWmm / cfg.cols);
-  const labelHpt=mm2pt(cfg.labelHmm);
+  const labelWpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelWidthmm) : mm2pt(usableWmm / cfg.cols);
+  const labelHpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelHeightmm) : mm2pt(cfg.labelHmm);
   const perPage=cfg.cols*cfg.rows; const start=pageIdx*perPage; const end=Math.min(labels.length, start+perPage);
   const padXpt=mm2pt(cfg.padXmm), padYpt=mm2pt(cfg.padYmm);
   for(let idx=start; idx<end; idx++){
@@ -580,8 +635,13 @@ function renderOnePage(cfg, pageIdx){
     const call = isBlank ? "" : item[0];
     const chunk = isBlank ? [] : item[1];
     const {x0,y0}=computeLabelX0Y0(cfg,col,rowI,labelWpt,labelHpt);
+    const rotation = (cfg.mode==='qslCard') ? (cfg.cardLabelRotationDeg||0) : 0;
+    const centerX = x0 + labelWpt/2;
+    const centerY = y0 + labelHpt/2;
+    ctx.save();
+    if(rotation){ ctx.translate(centerX, centerY); ctx.rotate(rotation*Math.PI/180); ctx.translate(-centerX, -centerY); }
     if(cfg.dbgOutline){ ctx.strokeStyle="#bbb"; ctx.lineWidth=0.5; ctx.strokeRect(x0,y0,labelWpt,labelHpt); }
-    if(isBlank) continue;
+    if(isBlank){ ctx.restore(); continue; }
     let colW;
     if(cfg.dynamicCols){
       colW = computeColWidths(metricsCanvas.getContext('2d'), {
@@ -625,6 +685,7 @@ function renderOnePage(cfg, pageIdx){
     ctx.textAlign="right";
     ctx.fillText(cfg.footerR, x0 + mm2pt(L.footerR.x_mm), y0 + mm2pt(L.footerR.y_mm));
     ctx.textAlign="left";
+    ctx.restore();
   }
 }
 function shrinkAndDraw(ctx, text, x, y, maxW, font, minSize=5, step=0.3){
@@ -637,6 +698,7 @@ function shrinkAndDraw(ctx, text, x, y, maxW, font, minSize=5, step=0.3){
 function applyFilters(allRows, f){ return allRows.filter(r=>rowPassesFilters(r, f)); }
 function buildLabelsWithOffset(filteredRows, cfg){
   const grouped = groupLabels(filteredRows, cfg.rowsPerLabel);
+  if(cfg.mode==='qslCard'){ return grouped; }
   const skipSlots = Math.max(0, (cfg.startRow-1)*cfg.cols + (cfg.startCol-1));
   if(skipSlots===0) return grouped;
   const blanks = Array.from({length: skipSlots}, ()=> null);
@@ -658,24 +720,74 @@ async function downloadPDF(){
   const pdfLabels = buildLabelsWithOffset(filtered, cfg);
   if(filtered.length===0){ alert("No QSOs match the current filters."); return; }
   const { jsPDF } = window.jspdf;
-  const dims=pageDims(cfg.pageSize);
-  const doc=new jsPDF({ unit:"mm", format:[dims.w,dims.h], compress:true });
-  const labelWpt=mm2pt((cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm)) / cfg.cols);
-  const labelHpt=mm2pt(cfg.labelHmm);
+  const orientation = (cfg.pageWmm >= cfg.pageHmm) ? 'landscape' : 'portrait';
+  const doc=new jsPDF({ orientation, unit:"mm", format:[cfg.pageWmm,cfg.pageHmm], compress:true });
+  const usableWmmPdf = cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm);
+  const labelWpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelWidthmm) : mm2pt(usableWmmPdf / cfg.cols);
+  const labelHpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelHeightmm) : mm2pt(cfg.labelHmm);
   const per=cfg.cols*cfg.rows; const pages=Math.max(1, Math.ceil(pdfLabels.length/per));
-  function pdfText(text,x_mm,y_mm,align="left",font="helvetica",style="normal",size=10){ doc.setFont(font,style); doc.setFontSize(size); doc.text(String(text??""),x_mm,y_mm,{align}); }
-  function shrinkAndText(text,x_mm,y_mm,maxW_mm,font="courier",style="normal",startSize=8.2,minSize=5.0,step=0.3){ let sz=startSize; doc.setFont(font,style); doc.setFontSize(sz); while(doc.getTextWidth(String(text??""))>maxW_mm&&sz>minSize){ sz=Math.max(minSize,sz-step); doc.setFontSize(sz);} doc.text(String(text??""),x_mm,y_mm); }
+  function pdfText(text,x_mm,y_mm,align="left",font="helvetica",style="normal",size=10,rotation=0){
+    doc.setFont(font,style); doc.setFontSize(size);
+    const opts={ align };
+    if(rotation){ opts.angle = rotation; }
+    doc.text(String(text??""), x_mm, y_mm, opts);
+  }
+  function shrinkAndText(text,x_mm,y_mm,maxW_mm,font="courier",style="normal",startSize=8.2,minSize=5.0,step=0.3,rotation=0){
+    let sz=startSize; doc.setFont(font,style); doc.setFontSize(sz);
+    while(doc.getTextWidth(String(text??""))>maxW_mm && sz>minSize){ sz=Math.max(minSize,sz-step); doc.setFontSize(sz); }
+    if(rotation){ doc.text(String(text??""), x_mm, y_mm, { angle: rotation }); }
+    else{ doc.text(String(text??""), x_mm, y_mm); }
+  }
+  function drawRotatedRect(docInst, toPage, width_mm, height_mm){
+    const corners=[
+      toPage(0,0),
+      toPage(width_mm,0),
+      toPage(width_mm,height_mm),
+      toPage(0,height_mm)
+    ];
+    for(let i=0;i<4;i++){
+      const a=corners[i]; const b=corners[(i+1)%4];
+      docInst.line(a.x, a.y, b.x, b.y);
+    }
+  }
   for(let p=0;p<pages;p++){
-    if(p>0) doc.addPage([dims.w,dims.h],"portrait");
+    if(p>0) doc.addPage([cfg.pageWmm,cfg.pageHmm],orientation);
+    if(cfg.dbgOutline && cfg.mode==='qslCard'){
+      doc.setDrawColor(148); doc.setLineWidth(0.1);
+      doc.rect(0,0,cfg.pageWmm,cfg.pageHmm);
+      doc.setDrawColor(0);
+    }
     const start=p*per, end=Math.min(pdfLabels.length, start+per);
     for(let idx=start; idx<end; idx++){
       const local=idx-start; const col=local%cfg.cols; const rowI=Math.floor(local/cfg.cols);
       const item=pdfLabels[idx];
       const isBlank = !item || !item[0] && (!item[1] || item[1].length===0);
       const {x0,y0} = computeLabelX0Y0(cfg,col,rowI,labelWpt,labelHpt);
-      const x0_mm=pt2mm(x0), y0_mm=pt2mm(y0), labelW_mm=pt2mm(labelWpt), labelH_mm=pt2mm(labelHpt);
+      const labelW_mm=(cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : pt2mm(labelWpt);
+      const labelH_mm=(cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : pt2mm(labelHpt);
+      const x0_mm=pt2mm(x0);
+      const y0_mm=pt2mm(y0);
+      const rotation = (cfg.mode==='qslCard') ? (cfg.cardLabelRotationDeg||0) : 0;
+      const rad=rotation*Math.PI/180;
+      const sinR=Math.sin(rad);
+      const cosR=Math.cos(rad);
+      const cx = x0_mm + labelW_mm/2;
+      const cy = y0_mm + labelH_mm/2;
+      const toPage = (lx_mm, ly_mm)=>{
+        const absX = x0_mm + lx_mm;
+        const absY = y0_mm + ly_mm;
+        if(!rotation){ return { x: absX, y: absY }; }
+        const dx = absX - cx;
+        const dy = absY - cy;
+        return { x: cx + dx*cosR - dy*sinR, y: cy + dx*sinR + dy*cosR };
+      };
       const padX_mm=cfg.padXmm;
-      if(cfg.dbgOutline){ doc.setDrawColor(187); doc.setLineWidth(0.1); doc.rect(x0_mm,y0_mm,labelW_mm,labelH_mm); doc.setDrawColor(0); }
+      if(cfg.dbgOutline){
+        doc.setDrawColor(187); doc.setLineWidth(0.1);
+        if(rotation){ drawRotatedRect(doc, toPage, labelW_mm, labelH_mm); }
+        else{ doc.rect(x0_mm, y0_mm, labelW_mm, labelH_mm); }
+        doc.setDrawColor(0);
+      }
       if(isBlank) continue;
       const [call, chunk]=item;
       let colWpt;
@@ -691,30 +803,36 @@ async function downloadPDF(){
         colWpt=cfg.staticColMM.map(mm=>mm2pt(mm)*scale);
       }
       const L = cfg.layout;
-      pdfText("To Radio", x0_mm + L.toRadio.x_mm, y0_mm + L.toRadio.y_mm, "left", "helvetica", "normal", cfg.sizeToRadio);
+      const toRadioPos = toPage(L.toRadio.x_mm, L.toRadio.y_mm);
+      pdfText("To Radio", toRadioPos.x, toRadioPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
       const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
-      const callX_mm = (callAlign==="center") ? (x0_mm + labelW_mm/2) : (x0_mm + (L.callsign.x_mm ?? padX_mm));
-      pdfText(String(call||"").toUpperCase(), callX_mm, y0_mm + L.callsign.y_mm, callAlign, "helvetica", "bold", cfg.sizeCallsign);
-      let cx_pt=x0;
+      const callLocalX = (callAlign==="center") ? (labelW_mm/2) : (L.callsign.x_mm ?? padX_mm);
+      const callPos = toPage(callLocalX, L.callsign.y_mm);
+      pdfText(String(call||"").toUpperCase(), callPos.x, callPos.y, callAlign, "helvetica", "bold", cfg.sizeCallsign, rotation);
+      let colAccumPt = 0;
       for(let i=0;i<cfg.columns.length;i++){
-        const x_mm=pt2mm(cx_pt + mm2pt(padX_mm));
-        pdfText(cfg.columns[i].header, x_mm, y0_mm + L.headers.y_mm, "left", "helvetica", "bold", cfg.sizeHeaders);
-        cx_pt += colWpt[i];
+        const headerLocalX = pt2mm(colAccumPt) + padX_mm;
+        const headerPos = toPage(headerLocalX, L.headers.y_mm);
+        pdfText(cfg.columns[i].header, headerPos.x, headerPos.y, "left", "helvetica", "bold", cfg.sizeHeaders, rotation);
+        colAccumPt += colWpt[i];
       }
-      const firstLine_mm = y0_mm + L.table.y_mm;
+      const lineGapPt = (L.table.lineGapPt ?? cfg.lineGapPt);
       for(let r=0;r<cfg.rowsPerLabel;r++){
-        const data=chunk[r]||null; let cx2_pt=x0;
+        const data=chunk[r]||null; let colAccumPt2=0;
         for(let i=0;i<cfg.columns.length;i++){
           const txt = data ? getCellText(data, cfg.columns[i].source) : "";
-          const x_mm = pt2mm(cx2_pt + mm2pt(padX_mm));
-          const y_mm = firstLine_mm + pt2mm((L.table.lineGapPt ?? cfg.lineGapPt) * r);
-          const maxW_mm = Math.max(0.1, pt2mm(colWpt[i] - 2*mm2pt(padX_mm)));
-          shrinkAndText(txt, x_mm, y_mm, maxW_mm, "courier", "normal", cfg.sizeRows);
-          cx2_pt += colWpt[i];
+          const localX = pt2mm(colAccumPt2) + padX_mm;
+          const localY = L.table.y_mm + pt2mm(lineGapPt * r);
+          const pos = toPage(localX, localY);
+          const maxW_mm = Math.max(0.1, pt2mm(colWpt[i]) - 2*padX_mm);
+          shrinkAndText(txt, pos.x, pos.y, maxW_mm, "courier", "normal", cfg.sizeRows, 5.0, 0.3, rotation);
+          colAccumPt2 += colWpt[i];
         }
       }
-      pdfText(cfg.footerL, x0_mm + L.footerL.x_mm, y0_mm + L.footerL.y_mm, "left", "helvetica", "normal", cfg.sizeFooter);
-      pdfText(cfg.footerR, x0_mm + L.footerR.x_mm, y0_mm + L.footerR.y_mm, "right", "helvetica", "normal", cfg.sizeFooter);
+      const footerLPos = toPage(L.footerL.x_mm, L.footerL.y_mm);
+      pdfText(cfg.footerL, footerLPos.x, footerLPos.y, "left", "helvetica", "normal", cfg.sizeFooter, rotation);
+      const footerRPos = toPage(L.footerR.x_mm, L.footerR.y_mm);
+      pdfText(cfg.footerR, footerRPos.x, footerRPos.y, "right", "helvetica", "normal", cfg.sizeFooter, rotation);
     }
   }
   doc.save('qsl_labels_avery3664.pdf');
@@ -783,8 +901,8 @@ function toggleEditor(on){
   if(on){ renderEditor(); } else { recompute(); }
 }
 function currentLabelDims(cfg){
-  const labelW_mm=(cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm))/cfg.cols;
-  const labelH_mm=cfg.labelHmm;
+  const labelW_mm=(cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : (cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm))/cfg.cols;
+  const labelH_mm=(cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : cfg.labelHmm;
   return {labelW_mm,labelH_mm};
 }
 function renderEditor(){
@@ -924,6 +1042,22 @@ function applyConfigToUI(cfg){
   if(cfg.rowOffsets) document.getElementById('rowOffsets').value = cfg.rowOffsets.join(",");
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
   if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
+  const modeSel=document.getElementById('outputMode');
+  if(modeSel){ modeSel.value = (cfg.mode==='qslCard') ? 'qslCard' : 'labels'; }
+  if(cfg.cardWidthmm!==undefined) document.getElementById('cardWidth').value = cfg.cardWidthmm;
+  if(cfg.cardHeightmm!==undefined) document.getElementById('cardHeight').value = cfg.cardHeightmm;
+  if(cfg.cardLabelWidthmm!==undefined) document.getElementById('cardLabelWidth').value = cfg.cardLabelWidthmm;
+  if(cfg.cardLabelHeightmm!==undefined) document.getElementById('cardLabelHeight').value = cfg.cardLabelHeightmm;
+  if(cfg.cardLabelXmm!==undefined) document.getElementById('cardLabelX').value = cfg.cardLabelXmm;
+  if(cfg.cardLabelYmm!==undefined) document.getElementById('cardLabelY').value = cfg.cardLabelYmm;
+  if(cfg.cardLabelRotationDeg!==undefined) document.getElementById('cardLabelRotation').value = cfg.cardLabelRotationDeg;
+  updateModeVisibility();
+}
+function updateModeVisibility(){
+  const mode=(document.getElementById('outputMode')?.value)||'labels';
+  document.body.classList.toggle('card-mode', mode==='qslCard');
+  const pageSizeEl=document.getElementById('pageSize');
+  if(pageSizeEl){ pageSizeEl.disabled = (mode==='qslCard'); }
 }
 function autoResizeOffsetCSVs(){
   const cols=+(document.getElementById('cols').value||3);
@@ -933,10 +1067,14 @@ function autoResizeOffsetCSVs(){
 }
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
-    if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor"].includes(el.id)) return;
+    if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","outputMode"].includes(el.id)) return;
     el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
     el.addEventListener('change', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
   });
+  const modeSel=document.getElementById('outputMode');
+  if(modeSel){
+    modeSel.addEventListener('change', ()=>{ updateModeVisibility(); recompute(); });
+  }
   document.getElementById('zoom').addEventListener('input', recompute);
   document.getElementById('addCol').onclick=()=> openPicker();
   document.getElementById('resetCols').onclick=()=>{ resetDefaultColumns(); syncColArraysToDefaults(); recompute(); };
@@ -979,6 +1117,7 @@ function bindInputs(){
   document.getElementById('resetLayout').onclick=()=>{ const cfg=readConfig(); layoutState = defaultLayout(cfg); renderEditor(); };
   document.getElementById('applyLayout').onclick=()=>{ toggleEditor(false); };
   document.getElementById('closeEditor').onclick=()=> toggleEditor(false);
+  updateModeVisibility();
 }
 
 /* ===== Column picker overlay ===== */
