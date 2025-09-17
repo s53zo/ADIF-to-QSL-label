@@ -206,8 +206,8 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
           <button id="resetCols">Reset to 3664 defaults</button>
         </div>
         <div class="muted" style="margin-top:8px">Min widths & Static widths (mm) match the number of columns:</div>
-        <div class="row"><label>Min col widths (mm, CSV)</label><input id="minColMM" type="text" value="12,10,10,6,10"></div>
-        <div class="row"><label>Static col widths (mm, CSV)</label><input id="staticColMM" type="text" value="20,12,12,8,18"></div>
+        <div class="row"><label>Min col widths (mm, CSV)</label><input id="minColMM" type="text" value="12,10,10,10,6"></div>
+        <div class="row"><label>Static col widths (mm, CSV)</label><input id="staticColMM" type="text" value="20,12,12,18,8"></div>
       </div>
 
       <div class="section">
@@ -275,7 +275,6 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
       <h1>QSL Labels</h1>
       <span id="stats" class="stats">QSOs: 0 | Labels: 0 | Pages: 0</span>
       <div class="spacer"></div>
-      <button id="editLayoutBtn">Edit layout</button>
       <button id="downloadBtn" class="primary" disabled>Download PDF</button>
     </header>
 
@@ -438,8 +437,19 @@ function measureText(ctx, text, font){ ctx.save(); ctx.font=font; const w=ctx.me
 function getCellText(row, source){ const key=(source||"").toUpperCase().trim(); if(!row) return ""; if(["DATE","TIME","BAND","MODE","QSL"].includes(key)) return row[key]||""; return row[key]||""; }
 function computeColWidths(ctx, cfg, qsoRows, labelWpt){
   const cols=cfg.columns; const n=cols.length;
-  const widths=cols.map(col=>measureText(ctx, col.header, `${cfg.sizeHeaders}px ${cfg.fontBold}`));
-  for(const row of qsoRows||[]){ for(let i=0;i<n;i++){ const txt=getCellText(row, cols[i].source); widths[i]=Math.max(widths[i], measureText(ctx, txt, `${cfg.sizeRows}px ${cfg.fontMono}`)); } }
+  const padXpt = mm2pt(cfg.padXmm ?? 0);
+  const padTotal = padXpt * 2;
+  const widths=cols.map(col=>{
+    const headerW = measureText(ctx, col.header, `${cfg.sizeHeaders}px ${cfg.fontBold}`);
+    return headerW + padTotal;
+  });
+  for(const row of qsoRows||[]){
+    for(let i=0;i<n;i++){
+      const txt=getCellText(row, cols[i].source);
+      const cellW = measureText(ctx, txt, `${cfg.sizeRows}px ${cfg.fontMono}`) + padTotal;
+      widths[i]=Math.max(widths[i], cellW);
+    }
+  }
   for(let i=0;i<n;i++) widths[i]+=cfg.colSlackPt;
   const minPts=cfg.minColMM.map(mm=>mm2pt(mm));
   for(let i=0;i<n;i++) widths[i]=Math.max(widths[i], minPts[i]||0);
@@ -574,6 +584,7 @@ function renderOnePage(cfg, pageIdx){
         columns: cfg.columns, sizeHeaders: cfg.sizeHeaders, sizeRows: cfg.sizeRows,
         fontBold: cfg.fontBold, fontMono: cfg.fontMono, minColMM: cfg.minColMM,
         staticColMM: cfg.staticColMM, colSlackPt: cfg.colSlackPt, shrinkOnly: cfg.shrinkOnly,
+        padXmm: cfg.padXmm,
       }, chunk, labelWpt);
     }else{
       const sum=cfg.staticColMM.reduce((a,b)=>a+b,0)||1;
@@ -669,6 +680,7 @@ async function downloadPDF(){
           columns: cfg.columns, sizeHeaders: cfg.sizeHeaders, sizeRows: cfg.sizeRows,
           fontBold: cfg.fontBold, fontMono: cfg.fontMono, minColMM: cfg.minColMM,
           staticColMM: cfg.staticColMM, colSlackPt: cfg.colSlackPt, shrinkOnly: cfg.shrinkOnly,
+          padXmm: cfg.padXmm,
         }, chunk, labelWpt);
       }else{
         const sum=cfg.staticColMM.reduce((a,b)=>a+b,0)||1; const scale=labelWpt/mm2pt(sum);
@@ -712,14 +724,14 @@ function addColumnRow(header, source){
                  <select class="col-s"></select>
                  <button class="remove">✕</button>`;
   const sel=row.querySelector('.col-s');
-  const defaults=["DATE","TIME","BAND","QSL","MODE"]; const seen=new Set();
+  const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
   [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
   if(source){ sel.value=String(source).toUpperCase(); }
   row.querySelector('.remove').onclick=()=>{ row.remove(); recompute(); };
   wrap.appendChild(row);
 }
-function resetDefaultColumns(){ const wrap=document.getElementById('columns'); wrap.innerHTML=""; [["Date","DATE"],["Time","TIME"],["Band","BAND"],["QSL","QSL"],["Mode","MODE"]].forEach(([h,s])=>addColumnRow(h,s)); }
-function syncColArraysToDefaults(){ document.getElementById('minColMM').value="12,10,10,6,10"; document.getElementById('staticColMM').value="20,12,12,8,18"; }
+function resetDefaultColumns(){ const wrap=document.getElementById('columns'); wrap.innerHTML=""; [["Date","DATE"],["Time","TIME"],["Band","BAND"],["Mode","MODE"],["QSL","QSL"]].forEach(([h,s])=>addColumnRow(h,s)); }
+function syncColArraysToDefaults(){ document.getElementById('minColMM').value="12,10,10,10,6"; document.getElementById('staticColMM').value="20,12,12,18,8"; }
 function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
 
 /* ===== Sample data ===== */
@@ -746,7 +758,7 @@ function loadSample(){
   adifFields=Array.from(tags).sort();
   usingSample=true;
   document.querySelectorAll('.col-row .col-s').forEach(sel=>{
-    const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","QSL","MODE"]; const seen=new Set();
+    const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
     [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
     if(keep) sel.value=keep;
   });
@@ -792,9 +804,9 @@ function renderEditor(){
   ctx.fillText("SAMPLECALL", callXpt, mm2pt(L.callsign.y_mm));
   ctx.textAlign="left";
   ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
-  ctx.fillText("Date   Time   Band   QSL   Mode", mm2pt(cfg.padXmm), mm2pt(L.headers.y_mm));
+  ctx.fillText("Date   Time   Band   Mode   QSL", mm2pt(cfg.padXmm), mm2pt(L.headers.y_mm));
   ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
-  ctx.fillText("2025-09-09  12:34  20M   TNX   CW", mm2pt(cfg.padXmm), mm2pt(L.table.y_mm));
+  ctx.fillText("2025-09-09  12:34  20M   CW   TNX", mm2pt(cfg.padXmm), mm2pt(L.table.y_mm));
   ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
   ctx.fillText(cfg.footerL || "Left footer", mm2pt(L.footerL.x_mm), mm2pt(L.footerL.y_mm));
   ctx.textAlign="right";
@@ -935,7 +947,7 @@ function bindInputs(){
     adifFields=Array.from(tags).sort();
     usingSample=false; currentPage=0;
     document.querySelectorAll('.col-row .col-s').forEach(sel=>{
-      const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","QSL","MODE"]; const seen=new Set();
+      const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
       [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
       if(keep) sel.value=keep;
     });
@@ -958,7 +970,8 @@ function bindInputs(){
     const f=e.target.files?.[0]; if(!f) return; const txt=await f.text(); try{ const obj=JSON.parse(txt); applyConfigToUI(obj); if(obj.layout) layoutState=obj.layout; autoResizeOffsetCSVs(); recompute(); }catch{ alert("Invalid config JSON"); }
   });
   document.getElementById('reloadSample').onclick=()=> loadSample();
-  document.getElementById('editLayoutBtn').onclick=()=> toggleEditor(true);
+  const editBtn=document.getElementById('editLayoutBtn');
+  if(editBtn) editBtn.onclick=()=> toggleEditor(true);
   document.getElementById('resetLayout').onclick=()=>{ const cfg=readConfig(); layoutState = defaultLayout(cfg); renderEditor(); };
   document.getElementById('applyLayout').onclick=()=>{ toggleEditor(false); };
   document.getElementById('closeEditor').onclick=()=> toggleEditor(false);
@@ -968,7 +981,7 @@ function bindInputs(){
 const picker=document.getElementById('picker');
 function openPicker(){
   const select=document.getElementById('pickSource'); select.innerHTML="";
-  const defaults=["DATE","TIME","BAND","QSL","MODE"]; const seen=new Set();
+  const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
   [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; select.appendChild(opt); });
   document.getElementById('pickHeader').value="Header"; picker.style.display="flex";
 }
