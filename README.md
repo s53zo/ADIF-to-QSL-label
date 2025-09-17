@@ -1,6 +1,6 @@
 # QSL Label Generator — Avery Zweckform 3664 (or any other)
 
-Github URL: [https://github.com/s53zo/ADIF-to-QSL-label]https://github.com/s53zo/ADIF-to-QSL-label
+Github URL: https://github.com/s53zo/ADIF-to-QSL-label
 
 There is a html and python version of the tool.
 
