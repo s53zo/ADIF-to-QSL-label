@@ -40,6 +40,11 @@ body:not(.card-mode) .mode-card-only{display:none !important}
 aside{border-right:1px solid var(--border); background:var(--panel); padding:18px 20px; overflow:auto}
 main{display:flex; flex-direction:column; height:100vh; position:sticky; top:0; align-self:start}
 
+.mode-toggle{display:inline-flex; gap:12px; background:var(--panel-2); border-radius:999px; padding:6px; border:1px solid var(--border); box-shadow:var(--shadow)}
+.mode-option{flex:1; border:none; background:transparent; color:var(--muted); padding:10px 18px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s}
+.mode-option.selected{background:var(--accent); color:#fff; box-shadow:0 2px 6px rgba(37,99,235,0.25)}
+.mode-option:not(.selected):hover{color:var(--ink); background:rgba(148,163,184,0.15)}
+
 header{position:sticky; top:0; z-index:5; display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); align-items:center; background:var(--panel-2); box-shadow:var(--shadow)}
 header h1{font-size:16px; font-weight:700; margin:0; color:var(--ink)}
 header .spacer{flex:1}
@@ -79,6 +84,8 @@ canvas{background:#ffffff; border:1px solid var(--border); border-radius:12px; b
 .app{grid-template-columns:1fr}
 aside{border-right:none; border-bottom:1px solid var(--border)}
 main{position:static; height:auto}
+.mode-toggle{width:100%; justify-content:space-between}
+.mode-option{flex:1}
 }
 /* === Contrast fixes (appended) === */
 :root{ --panel:#101a2c; --panel-2:#0f2138; --ink:#eef3ff; --muted:#a9b4c6; --border:#2a3a53 }
@@ -142,14 +149,17 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
         <p class="help">Filters apply live to preview & PDF.</p>
       </div>
 
+      <div class="section" id="modeSection">
+        <h3>What do you want to print?</h3>
+        <div class="mode-toggle" role="radiogroup" aria-label="Output mode">
+          <button id="modeLabels" data-mode="labels" class="mode-option selected">Label sheets</button>
+          <button id="modeCard" data-mode="qslCard" class="mode-option">Direct QSL card</button>
+        </div>
+        <p class="help">Switch between multi-label sheets and single QSL cards.</p>
+      </div>
+
       <div class="section" id="pageSection">
         <h3>Page & Start Position</h3>
-        <div class="row"><label>Output mode</label>
-          <select id="outputMode">
-            <option value="labels" selected>Label sheets</option>
-            <option value="qslCard">Direct QSL card</option>
-          </select>
-        </div>
         <div class="row mode-labels-only"><label>Page Size</label>
           <select id="pageSize">
             <option value="A4" selected>A4 (210×297mm)</option>
@@ -541,7 +551,8 @@ function defaultLayout(cfg){
 }
 function pageDims(name){ return (name==="LETTER")?LETTER:A4; }
 function readConfig(){
-  const mode=(document.getElementById('outputMode')?.value)||'labels';
+  const modeSelBtn=document.querySelector('.mode-option.selected');
+  const mode = modeSelBtn ? modeSelBtn.dataset.mode : 'labels';
   const colRows=[...document.querySelectorAll('.col-row')];
   const columns=colRows.map(r=>({ header:r.querySelector('.col-h')?.value.trim()||"Col", source:r.querySelector('.col-s')?.value.trim()||"DATE" }));
   function fitCsv(csv,len,fill=0){ const arr=parseCSVfloats(csv); if(arr.length<len) arr.push(...Array(len-arr.length).fill(fill)); if(arr.length>len) arr.length=len; return arr; }
@@ -1086,8 +1097,9 @@ function applyConfigToUI(cfg){
   if(cfg.rowOffsets) document.getElementById('rowOffsets').value = cfg.rowOffsets.join(",");
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
   if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
-  const modeSel=document.getElementById('outputMode');
-  if(modeSel){ modeSel.value = (cfg.mode==='qslCard') ? 'qslCard' : 'labels'; }
+  document.querySelectorAll('.mode-option').forEach(btn=>{
+    btn.classList.toggle('selected', btn.dataset.mode === (cfg.mode==='qslCard'?'qslCard':'labels'));
+  });
   if(cfg.cardWidthmm!==undefined) document.getElementById('cardWidth').value = cfg.cardWidthmm;
   if(cfg.cardHeightmm!==undefined) document.getElementById('cardHeight').value = cfg.cardHeightmm;
   if(cfg.cardLabelWidthmm!==undefined) document.getElementById('cardLabelWidth').value = cfg.cardLabelWidthmm;
@@ -1098,7 +1110,8 @@ function applyConfigToUI(cfg){
   updateModeVisibility();
 }
 function updateModeVisibility(){
-  const mode=(document.getElementById('outputMode')?.value)||'labels';
+  const modeSelBtn=document.querySelector('.mode-option.selected');
+  const mode = modeSelBtn ? modeSelBtn.dataset.mode : 'labels';
   document.body.classList.toggle('card-mode', mode==='qslCard');
   const pageSizeEl=document.getElementById('pageSize');
   if(pageSizeEl){ pageSizeEl.disabled = (mode==='qslCard'); }
@@ -1111,14 +1124,18 @@ function autoResizeOffsetCSVs(){
 }
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
-    if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","outputMode"].includes(el.id)) return;
+    if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor"].includes(el.id)) return;
     el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
     el.addEventListener('change', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
   });
-  const modeSel=document.getElementById('outputMode');
-  if(modeSel){
-    modeSel.addEventListener('change', ()=>{ updateModeVisibility(); recompute(); });
-  }
+  document.querySelectorAll('.mode-option').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.mode-option').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      updateModeVisibility();
+      recompute();
+    });
+  });
   document.getElementById('zoom').addEventListener('input', recompute);
   document.getElementById('addCol').onclick=()=> openPicker();
   document.getElementById('resetCols').onclick=()=>{ resetDefaultColumns(); syncColArraysToDefaults(); recompute(); };
