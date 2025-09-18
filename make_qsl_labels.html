@@ -53,6 +53,27 @@ header .spacer{flex:1}
 .section{border:1px solid var(--border); border-radius:var(--radius); padding:14px; background:var(--panel); box-shadow:var(--shadow)}
 .section h3{margin:0 0 10px 0; font-size:13px; color:var(--muted); text-transform:uppercase}
 
+.section.collapsible{padding:0; overflow:hidden}
+.collapsible > .section-toggle{width:100%; border:none; background:var(--panel); color:var(--ink); display:flex; align-items:center; gap:12px; padding:16px 18px; cursor:pointer; font-size:14px; font-weight:600; text-align:left; transition:background .2s ease, color .2s ease}
+.collapsible > .section-toggle:focus-visible{outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.3)}
+.collapsible > .section-toggle:hover{background:var(--panel-2)}
+.collapsible .section-icon{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:rgba(59,130,246,0.15); color:var(--accent)}
+.collapsible .section-icon svg{width:14px; height:14px}
+.collapsible .section-title{flex:1; letter-spacing:0.02em}
+.collapsible .section-chevron{display:inline-flex; transition:transform .2s ease; color:var(--muted)}
+.collapsible .section-chevron svg{width:14px; height:14px}
+.collapsible > .section-body{padding:16px 18px 18px 18px; border-top:1px solid var(--border); background:var(--panel)}
+.collapsible > .section-body.collapsed{display:none}
+.collapsible.is-collapsed > .section-toggle .section-chevron{transform:rotate(-90deg)}
+.collapsible:not(.is-collapsed) > .section-toggle .section-chevron{transform:rotate(0deg)}
+.section-hint{margin:0 0 14px 0; font-size:12px; color:var(--muted)}
+.subsection{border:1px solid var(--border); border-radius:10px; margin-top:12px; overflow:hidden; background:var(--panel-2)}
+.subsection.collapsible > .section-toggle{background:var(--panel-2)}
+.subsection.collapsible > .section-toggle:hover{background:var(--panel)}
+.subsection.collapsible > .section-body{background:var(--panel-2)}
+.subsection:first-of-type{margin-top:0}
+.version{margin-top:16px; text-align:center; font-size:12px; color:var(--muted)}
+
 label{font-size:13px; color:var(--muted)}
 input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{
 width:100%; padding:9px 12px; border-radius:10px; border:1px solid var(--border); background:var(--panel-2); color:var(--ink);
@@ -104,200 +125,405 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
 <div class="app">
   <aside>
     <div class="grid">
-      <div class="section">
-        <h3>Data</h3>
-        <div class="row">
-          <label>ADIF file</label>
-          <input id="adifFile" type="file" accept=".adi,.adif,.txt" />
-        </div>
-        <div id="adifWarning" class="warn">Sample data is shown. Upload your ADIF to replace it.</div>
-      </div>
-
-      <div class="section">
-        <h3>Filters</h3>
-        <div class="row2">
-          <div>
-            <label class="small muted">Date from</label>
-            <input id="fDateFrom" type="date" />
+      <div class="section collapsible" data-section="data" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 3h8l5 5v13H7z"></path>
+              <path d="M15 3v5h5"></path>
+            </svg>
+          </span>
+          <span class="section-title">Data</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Load your ADIF log or try the bundled sample entries.</p>
+          <div class="row">
+            <label>ADIF file</label>
+            <input id="adifFile" type="file" accept=".adi,.adif,.txt" />
           </div>
-          <div>
-            <label class="small muted">Date to</label>
-            <input id="fDateTo" type="date" />
+          <div id="adifWarning" class="warn">Sample data is shown. Upload your ADIF to replace it.</div>
+        </div>
+      </div>
+
+      <div class="section collapsible" data-section="filters" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16l-6 7v5l-4 2v-7z"></path>
+            </svg>
+          </span>
+          <span class="section-title">Filters</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Narrow QSOs by date, band, mode, or QSL status before printing.</p>
+          <div class="row2">
+            <div>
+              <label class="small muted">Date from</label>
+              <input id="fDateFrom" type="date" />
+            </div>
+            <div>
+              <label class="small muted">Date to</label>
+              <input id="fDateTo" type="date" />
+            </div>
+          </div>
+          <div class="row"><label>Bands (CSV)</label><input id="fBands" type="text" placeholder="e.g. 20M,40M"></div>
+          <div class="row"><label>Modes (CSV)</label><input id="fModes" type="text" placeholder="e.g. CW,SSB,FT8"></div>
+          <div class="row">
+            <label>QSL field</label>
+            <select id="fQslField">
+              <option value="ANY" selected>Any of (QSL_RCVD / LOTW_QSL_RCVD / EQSL_QSL_RCVD)</option>
+              <option value="QSL_RCVD">QSL_RCVD</option>
+              <option value="LOTW_QSL_RCVD">LOTW_QSL_RCVD</option>
+              <option value="EQSL_QSL_RCVD">EQSL_QSL_RCVD</option>
+            </select>
+          </div>
+          <div class="row">
+            <label>QSL status</label>
+            <select id="fQslStatus">
+              <option value="ALL" selected>All</option>
+              <option value="N">Needed (N)</option>
+              <option value="Y">Received (Y)</option>
+              <option value="I">Ignore (I)</option>
+              <option value="NONE">Not received (empty or N)</option>
+            </select>
+          </div>
+          <p class="help">Filters apply live to preview & PDF.</p>
+        </div>
+      </div>
+
+      <div class="section collapsible" id="modeSection" data-section="mode" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+              <path d="M12 5v14"></path>
+            </svg>
+          </span>
+          <span class="section-title">What do you want to print?</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Choose between multi-label sheets and individual QSL cards.</p>
+          <div class="mode-toggle" role="radiogroup" aria-label="Output mode">
+            <button id="modeLabels" data-mode="labels" class="mode-option selected">Label sheets</button>
+            <button id="modeCard" data-mode="qslCard" class="mode-option">Direct QSL card</button>
           </div>
         </div>
-        <div class="row"><label>Bands (CSV)</label><input id="fBands" type="text" placeholder="e.g. 20M,40M"></div>
-        <div class="row"><label>Modes (CSV)</label><input id="fModes" type="text" placeholder="e.g. CW,SSB,FT8"></div>
-        <div class="row">
-          <label>QSL field</label>
-          <select id="fQslField">
-            <option value="ANY" selected>Any of (QSL_RCVD / LOTW_QSL_RCVD / EQSL_QSL_RCVD)</option>
-            <option value="QSL_RCVD">QSL_RCVD</option>
-            <option value="LOTW_QSL_RCVD">LOTW_QSL_RCVD</option>
-            <option value="EQSL_QSL_RCVD">EQSL_QSL_RCVD</option>
-          </select>
-        </div>
-        <div class="row">
-          <label>QSL status</label>
-          <select id="fQslStatus">
-            <option value="ALL" selected>All</option>
-            <option value="N">Needed (N)</option>
-            <option value="Y">Received (Y)</option>
-            <option value="I">Ignore (I)</option>
-            <option value="NONE">Not received (empty or N)</option>
-          </select>
-        </div>
-        <p class="help">Filters apply live to preview & PDF.</p>
       </div>
 
-      <div class="section" id="modeSection">
-        <h3>What do you want to print?</h3>
-        <div class="mode-toggle" role="radiogroup" aria-label="Output mode">
-          <button id="modeLabels" data-mode="labels" class="mode-option selected">Label sheets</button>
-          <button id="modeCard" data-mode="qslCard" class="mode-option">Direct QSL card</button>
-        </div>
-        <p class="help">Switch between multi-label sheets and single QSL cards.</p>
-      </div>
-
-      <div class="section" id="pageSection">
-        <h3>Page & Start Position</h3>
-        <div class="row mode-labels-only"><label>Page Size</label>
-          <select id="pageSize">
-            <option value="A4" selected>A4 (210×297mm)</option>
-            <option value="LETTER">Letter (8.5×11")</option>
-          </select>
-        </div>
-        <div class="row mode-labels-only"><label>Cols</label><input id="cols" type="number" value="3" min="1"></div>
-        <div class="row mode-labels-only"><label>Rows</label><input id="rows" type="number" value="8" min="1"></div>
-        <div class="row mode-labels-only"><label>Label height (mm)</label><input id="labelH" type="number" step="0.5" value="33.8"></div>
-        <div class="row mode-labels-only"><label>Left margin (mm)</label><input id="marginL" type="number" step="0.5" value="3"></div>
-        <div class="row mode-labels-only"><label>Right margin (mm)</label><input id="marginR" type="number" step="0.5" value="3"></div>
-        <div class="row mode-labels-only"><label>Top margin (mm)</label><input id="marginT" type="number" step="0.5" value="5"></div>
-        <div class="row2 mode-labels-only">
-          <div>
-            <label class="small muted">Start at row</label>
-            <input id="startRow" type="number" min="1" value="1" />
+      <div class="section collapsible" id="pageSection" data-section="page" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <path d="M4 12h16"></path>
+              <path d="M12 4v16"></path>
+            </svg>
+          </span>
+          <span class="section-title">Page & Start Position</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Align the template with your sheet before printing multiples.</p>
+          <div class="row mode-labels-only"><label>Page Size</label>
+            <select id="pageSize">
+              <option value="A4" selected>A4 (210×297mm)</option>
+              <option value="LETTER">Letter (8.5×11")</option>
+            </select>
           </div>
-          <div>
-            <label class="small muted">Start at column</label>
-            <input id="startCol" type="number" min="1" value="1" />
+          <div class="row mode-labels-only"><label>Cols</label><input id="cols" type="number" value="3" min="1"></div>
+          <div class="row mode-labels-only"><label>Rows</label><input id="rows" type="number" value="8" min="1"></div>
+          <div class="row mode-labels-only"><label>Label height (mm)</label><input id="labelH" type="number" step="0.5" value="33.8"></div>
+          <div class="row mode-labels-only"><label>Left margin (mm)</label><input id="marginL" type="number" step="0.5" value="3"></div>
+          <div class="row mode-labels-only"><label>Right margin (mm)</label><input id="marginR" type="number" step="0.5" value="3"></div>
+          <div class="row mode-labels-only"><label>Top margin (mm)</label><input id="marginT" type="number" step="0.5" value="5"></div>
+          <div class="row2 mode-labels-only">
+            <div>
+              <label class="small muted">Start at row</label>
+              <input id="startRow" type="number" min="1" value="1" />
+            </div>
+            <div>
+              <label class="small muted">Start at column</label>
+              <input id="startCol" type="number" min="1" value="1" />
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="section mode-card-only" id="cardSection">
-        <h3>QSL Card</h3>
-        <div class="row"><label>Card width (mm)</label><input id="cardWidth" type="number" step="0.5" value="150"></div>
-        <div class="row"><label>Card height (mm)</label><input id="cardHeight" type="number" step="0.5" value="100"></div>
-        <div class="row"><label>Label width (mm)</label><input id="cardLabelWidth" type="number" step="0.5" value="70"></div>
-        <div class="row"><label>Label height (mm)</label><input id="cardLabelHeight" type="number" step="0.5" value="35"></div>
-        <div class="row"><label>Label X offset (mm)</label><input id="cardLabelX" type="number" step="0.5" value="0"></div>
-        <div class="row"><label>Label Y offset (mm)</label><input id="cardLabelY" type="number" step="0.5" value="0"></div>
-        <div class="row"><label>Label rotation (deg)</label><input id="cardLabelRotation" type="number" step="0.5" value="0"></div>
+      <div class="section collapsible mode-card-only" id="cardSection" data-section="card" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="7" width="18" height="10" rx="2"></rect>
+              <path d="M7 10h10"></path>
+            </svg>
+          </span>
+          <span class="section-title">QSL Card</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Dial in your card size and fine-tune the printable label area.</p>
+          <div class="row"><label>Card width (mm)</label><input id="cardWidth" type="number" step="0.5" value="150"></div>
+          <div class="row"><label>Card height (mm)</label><input id="cardHeight" type="number" step="0.5" value="100"></div>
+          <div class="row"><label>Label width (mm)</label><input id="cardLabelWidth" type="number" step="0.5" value="70"></div>
+          <div class="row"><label>Label height (mm)</label><input id="cardLabelHeight" type="number" step="0.5" value="35"></div>
+          <div class="row"><label>Label X offset (mm)</label><input id="cardLabelX" type="number" step="0.5" value="0"></div>
+          <div class="row"><label>Label Y offset (mm)</label><input id="cardLabelY" type="number" step="0.5" value="0"></div>
+          <div class="row"><label>Label rotation (deg)</label><input id="cardLabelRotation" type="number" step="0.5" value="0"></div>
+        </div>
       </div>
 
-      <div class="section">
-        <h3>Offsets</h3>
-        <div class="row"><label>Global X (mm)</label><input id="xOffset" type="number" step="0.5" value="0"></div>
-        <div class="row"><label>Global Y (mm)</label><input id="yOffset" type="number" step="0.5" value="5"></div>
-        <div class="row"><label>Per-column offsets (mm, CSV)</label><input id="colOffsets" type="text" value="0,0,0"></div>
-        <div class="row"><label>Per-row offsets (mm, CSV)</label><input id="rowOffsets" type="text" value="0,0,0,0,0,0,0,0"></div>
-        <p class="help">CSV lists auto-resize when you change columns/rows.</p>
+      <div class="section collapsible" id="advancedSection" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="false">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V22a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H22a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </span>
+          <span class="section-title">Advanced controls</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body collapsed">
+          <p class="section-hint">Need precise alignment or styling tweaks? Expand the tools below.</p>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M12 2v3"></path>
+                  <path d="M12 19v3"></path>
+                  <path d="M20 12h-3"></path>
+                  <path d="M7 12H4"></path>
+                </svg>
+              </span>
+              <span class="section-title">Offsets</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Nudge the label grid when your printer feeds a bit off.</p>
+              <div class="row"><label>Global X (mm)</label><input id="xOffset" type="number" step="0.5" value="0"></div>
+              <div class="row"><label>Global Y (mm)</label><input id="yOffset" type="number" step="0.5" value="5"></div>
+              <div class="row"><label>Per-column offsets (mm, CSV)</label><input id="colOffsets" type="text" value="0,0,0"></div>
+              <div class="row"><label>Per-row offsets (mm, CSV)</label><input id="rowOffsets" type="text" value="0,0,0,0,0,0,0,0"></div>
+              <p class="help">CSV lists auto-resize when you change columns/rows.</p>
+            </div>
+          </div>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="5" y="7" width="14" height="10" rx="2"></rect>
+                  <path d="M9 11h6"></path>
+                </svg>
+              </span>
+              <span class="section-title">Inside label</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Control padding and footer text for each printed label.</p>
+              <div class="row"><label>Padding X (mm)</label><input id="padX" type="number" step="0.5" value="2"></div>
+              <div class="row"><label>Padding Y (mm)</label><input id="padY" type="number" step="0.5" value="2"></div>
+              <div class="row"><label>Left footer text</label><input id="footerL" type="text" value="SY: Blondie, South Adriatic sea"></div>
+              <div class="row"><label>Right footer text</label><input id="footerR" type="text" value="TNX & 73"></div>
+              <div class="row"><label>Right footer shift (mm)</label><input id="footerRShift" type="number" step="0.5" value="5"></div>
+              <div class="row"><label>Footer Y shift (mm)</label><input id="footerYShift" type="number" step="0.5" value="2"></div>
+            </div>
+          </div>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                  <path d="M3 11h18"></path>
+                  <path d="M9 5v14"></path>
+                  <path d="M15 5v14"></path>
+                </svg>
+              </span>
+              <span class="section-title">Table</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Adjust table rows, columns, and spacing for each label.</p>
+              <div class="row"><label>Rows per label</label><input id="rowsPerLabel" type="number" min="1" value="4"></div>
+              <div class="row"><label>Dynamic widths</label>
+                <select id="dynamicCols">
+                  <option value="1" selected>On</option>
+                  <option value="0">Off (static)</option>
+                </select>
+              </div>
+              <div class="row"><label>Shrink only</label>
+                <select id="shrinkOnly">
+                  <option value="1" selected>On (leave free space)</option>
+                  <option value="0">Off (stretch to fill)</option>
+                </select>
+              </div>
+              <div class="row"><label>Slack (pt)</label><input id="slackPt" type="number" step="0.5" value="2"></div>
+              <div class="row"><label>Line gap (pt)</label><input id="lineGap" type="number" step="0.5" value="9"></div>
+
+              <div class="columns" id="columns">
+                <div class="muted">Columns (header + source). Defaults match Avery 3664.</div>
+              </div>
+              <div class="controls">
+                <button id="addCol">+ Add column</button>
+                <button id="resetCols">Reset to 3664 defaults</button>
+              </div>
+              <div class="muted" style="margin-top:8px">Min widths &amp; Static widths (mm) match the number of columns:</div>
+              <div class="row"><label>Min col widths (mm, CSV)</label><input id="minColMM" type="text" value="12,10,10,10,6"></div>
+              <div class="row"><label>Static col widths (mm, CSV)</label><input id="staticColMM" type="text" value="20,12,12,18,8"></div>
+            </div>
+          </div>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 20h14"></path>
+                  <path d="M7 4h10"></path>
+                  <path d="M9 4v12"></path>
+                </svg>
+              </span>
+              <span class="section-title">Typography</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Pick fonts and sizes for headers, rows, and footers.</p>
+              <div class="row">
+                <label>Body font</label>
+                <select id="fontBody">
+                  <option>Helvetica, Arial, sans-serif</option>
+                  <option>Arial, Helvetica, sans-serif</option>
+                  <option>Inter, Helvetica, Arial, sans-serif</option>
+                  <option>Roboto, Helvetica, Arial, sans-serif</option>
+                  <option>Times New Roman, Times, serif</option>
+                  <option>Georgia, Times, serif</option>
+                </select>
+              </div>
+              <div class="row">
+                <label>Mono font</label>
+                <select id="fontMono">
+                  <option>Courier New, Courier, monospace</option>
+                  <option>Consolas, Monaco, monospace</option>
+                  <option>Menlo, Monaco, monospace</option>
+                  <option>Ubuntu Mono, monospace</option>
+                  <option>DejaVu Sans Mono, monospace</option>
+                </select>
+              </div>
+              <div class="row">
+                <label>Bold font</label>
+                <select id="fontBold">
+                  <option>Helvetica, Arial, sans-serif</option>
+                  <option>Arial, Helvetica, sans-serif</option>
+                  <option>Inter, Helvetica, Arial, sans-serif</option>
+                  <option>Roboto, Helvetica, Arial, sans-serif</option>
+                  <option>Times New Roman, Times, serif</option>
+                  <option>Georgia, Times, serif</option>
+                </select>
+              </div>
+              <div class="row"><label>To Radio (pt)</label><input id="sizeToRadio" type="number" step="0.5" value="7.5"></div>
+              <div class="row"><label>Callsign (pt)</label><input id="sizeCallsign" type="number" step="0.5" value="14"></div>
+              <div class="row"><label>Headers (pt)</label><input id="sizeHeaders" type="number" step="0.5" value="7.2"></div>
+              <div class="row"><label>Rows (pt)</label><input id="sizeRows" type="number" step="0.5" value="8.2"></div>
+              <div class="row"><label>Footer (pt)</label><input id="sizeFooter" type="number" step="0.5" value="7.2"></div>
+            </div>
+          </div>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 8l-7 7-4-4"></path>
+                  <path d="M20 12a8 8 0 1 1-8-8"></path>
+                </svg>
+              </span>
+              <span class="section-title">Debug</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Show outlines to verify printable areas before you commit.</p>
+              <div class="row"><label>Label outlines</label><select id="dbgOutline"><option value="0">Off</option><option value="1">On</option></select></div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      <div class="section">
-        <h3>Inside label</h3>
-        <div class="row"><label>Padding X (mm)</label><input id="padX" type="number" step="0.5" value="2"></div>
-        <div class="row"><label>Padding Y (mm)</label><input id="padY" type="number" step="0.5" value="2"></div>
-        <div class="row"><label>Left footer text</label><input id="footerL" type="text" value="SY: Blondie, South Adriatic sea"></div>
-        <div class="row"><label>Right footer text</label><input id="footerR" type="text" value="TNX & 73"></div>
-        <div class="row"><label>Right footer shift (mm)</label><input id="footerRShift" type="number" step="0.5" value="5"></div>
-        <div class="row"><label>Footer Y shift (mm)</label><input id="footerYShift" type="number" step="0.5" value="2"></div>
+      <div class="section collapsible" data-section="config" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v12"></path>
+              <path d="M8 11l4 4 4-4"></path>
+              <rect x="4" y="19" width="16" height="2" rx="1"></rect>
+            </svg>
+          </span>
+          <span class="section-title">Config</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Export or load a JSON snapshot of every setting.</p>
+          <div class="controls">
+            <button id="saveCfg">Save config</button>
+            <input id="loadCfg" type="file" accept=".json" />
+          </div>
+          <p class="help">Saves/loads JSON with all your settings (including columns & layout).</p>
+        </div>
       </div>
 
-      <div class="section">
-        <h3>Table</h3>
-        <div class="row"><label>Rows per label</label><input id="rowsPerLabel" type="number" min="1" value="4"></div>
-        <div class="row"><label>Dynamic widths</label>
-          <select id="dynamicCols">
-            <option value="1" selected>On</option>
-            <option value="0">Off (static)</option>
-          </select>
-        </div>
-        <div class="row"><label>Shrink only</label>
-          <select id="shrinkOnly">
-            <option value="1" selected>On (leave free space)</option>
-            <option value="0">Off (stretch to fill)</option>
-          </select>
-        </div>
-        <div class="row"><label>Slack (pt)</label><input id="slackPt" type="number" step="0.5" value="2"></div>
-        <div class="row"><label>Line gap (pt)</label><input id="lineGap" type="number" step="0.5" value="9"></div>
-
-        <div class="columns" id="columns">
-          <div class="muted">Columns (header + source). Defaults match Avery 3664.</div>
-        </div>
-        <div class="controls">
-          <button id="addCol">+ Add column</button>
-          <button id="resetCols">Reset to 3664 defaults</button>
-        </div>
-        <div class="muted" style="margin-top:8px">Min widths & Static widths (mm) match the number of columns:</div>
-        <div class="row"><label>Min col widths (mm, CSV)</label><input id="minColMM" type="text" value="12,10,10,10,6"></div>
-        <div class="row"><label>Static col widths (mm, CSV)</label><input id="staticColMM" type="text" value="20,12,12,18,8"></div>
-      </div>
-
-      <div class="section">
-        <h3>Typography</h3>
-        <div class="row">
-          <label>Body font</label>
-          <select id="fontBody">
-            <option>Helvetica, Arial, sans-serif</option>
-            <option>Arial, Helvetica, sans-serif</option>
-            <option>Inter, Helvetica, Arial, sans-serif</option>
-            <option>Roboto, Helvetica, Arial, sans-serif</option>
-            <option>Times New Roman, Times, serif</option>
-            <option>Georgia, Times, serif</option>
-          </select>
-        </div>
-        <div class="row">
-          <label>Mono font</label>
-          <select id="fontMono">
-            <option>Courier New, Courier, monospace</option>
-            <option>Consolas, Monaco, monospace</option>
-            <option>Menlo, Monaco, monospace</option>
-            <option>Ubuntu Mono, monospace</option>
-            <option>DejaVu Sans Mono, monospace</option>
-          </select>
-        </div>
-        <div class="row">
-          <label>Bold font</label>
-          <select id="fontBold">
-            <option>Helvetica, Arial, sans-serif</option>
-            <option>Arial, Helvetica, sans-serif</option>
-            <option>Inter, Helvetica, Arial, sans-serif</option>
-            <option>Roboto, Helvetica, Arial, sans-serif</option>
-            <option>Times New Roman, Times, serif</option>
-            <option>Georgia, Times, serif</option>
-          </select>
-        </div>
-        <div class="row"><label>To Radio (pt)</label><input id="sizeToRadio" type="number" step="0.5" value="7.5"></div>
-        <div class="row"><label>Callsign (pt)</label><input id="sizeCallsign" type="number" step="0.5" value="14"></div>
-        <div class="row"><label>Headers (pt)</label><input id="sizeHeaders" type="number" step="0.5" value="7.2"></div>
-        <div class="row"><label>Rows (pt)</label><input id="sizeRows" type="number" step="0.5" value="8.2"></div>
-        <div class="row"><label>Footer (pt)</label><input id="sizeFooter" type="number" step="0.5" value="7.2"></div>
-      </div>
-
-      <div class="section">
-        <h3>Debug</h3>
-        <div class="row"><label>Label outlines</label><select id="dbgOutline"><option value="0">Off</option><option value="1">On</option></select></div>
-      </div>
-
-      <div class="section">
-        <h3>Config</h3>
-        <div class="controls">
-          <button id="saveCfg">Save config</button>
-          <input id="loadCfg" type="file" accept=".json" />
-        </div>
-        <p class="help">Saves/loads JSON with all your settings (including columns & layout).</p>
-      </div>
+      <div class="version">Version v2.1</div>
     </div>
   </aside>
 
@@ -1109,6 +1335,24 @@ function applyConfigToUI(cfg){
   if(cfg.cardLabelRotationDeg!==undefined) document.getElementById('cardLabelRotation').value = cfg.cardLabelRotationDeg;
   updateModeVisibility();
 }
+function initCollapsibles(){
+  document.querySelectorAll('.collapsible').forEach(section=>{
+    const toggle=section.querySelector('.section-toggle');
+    const body=section.querySelector('.section-body');
+    if(!toggle || !body) return;
+    if(section.dataset.collapsibleBound) return;
+    let collapsed = section.dataset.initial === 'collapsed' || body.classList.contains('collapsed');
+    section.classList.toggle('is-collapsed', collapsed);
+    body.classList.toggle('collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    toggle.addEventListener('click', ()=>{
+      const isCollapsed = section.classList.toggle('is-collapsed');
+      toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      body.classList.toggle('collapsed', isCollapsed);
+    });
+    section.dataset.collapsibleBound = '1';
+  });
+}
 function updateModeVisibility(){
   const modeSelBtn=document.querySelector('.mode-option.selected');
   const mode = modeSelBtn ? modeSelBtn.dataset.mode : 'labels';
@@ -1125,6 +1369,7 @@ function autoResizeOffsetCSVs(){
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
     if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor"].includes(el.id)) return;
+    if(el.classList.contains('section-toggle') || el.classList.contains('mode-option')) return;
     el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
     el.addEventListener('change', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
   });
@@ -1194,6 +1439,7 @@ function closePicker(){ picker.style.display="none"; }
 /* ===== Boot ===== */
 resetDefaultColumns();
 syncColArraysToDefaults();
+initCollapsibles();
 bindInputs();
 loadSample();
 </script>
