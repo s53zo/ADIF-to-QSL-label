@@ -101,24 +101,32 @@ canvas{background:#ffffff; border:1px solid var(--border); border-radius:12px; b
 .warn{color:var(--warn); font-size:12px}
 .good{color:var(--good); font-size:12px}
 
+.footer-bar{margin-top:18px; padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:var(--panel); display:flex; align-items:center; gap:16px; justify-content:space-between}
+.footer-bar label{font-size:12px; color:var(--muted); margin-right:8px}
+.footer-bar select{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--panel-2); color:var(--ink)}
+.footer-bar select:focus{outline:none; box-shadow:0 0 0 3px rgba(37,100,190,0.25)}
+.footer-bar .theme-switcher{display:flex; align-items:center; gap:10px}
+.footer-bar .theme-switcher select{min-width:180px}
+
 @media (max-width: 1200px){
 .app{grid-template-columns:1fr}
 aside{border-right:none; border-bottom:1px solid var(--border)}
 main{position:static; height:auto}
 .mode-toggle{width:100%; justify-content:space-between}
 .mode-option{flex:1}
+.footer-bar{flex-direction:column; align-items:flex-start}
+.footer-bar .theme-switcher{width:100%; justify-content:space-between}
+.footer-bar .theme-switcher select{flex:1}
 }
-/* === Contrast fixes (appended) === */
-:root{ --panel:#101a2c; --panel-2:#0f2138; --ink:#eef3ff; --muted:#a9b4c6; --border:#2a3a53 }
-body{ color-scheme: dark light }
-header{ background: var(--panel) !important; box-shadow: var(--shadow) }
-.section{ background: var(--panel-2) !important }
-input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{ background: var(--panel-2) !important; color: var(--ink) !important; border-color: var(--border) !important }
-#previewControls{ background: var(--panel) !important }
-.banner{ background: var(--panel-2) !important; border-color: var(--border) !important; color: var(--ink) !important }
-.tag{ background: var(--panel-2) !important; border:1px solid var(--border) !important; color:#bfe6ff !important }
-.dialog{ background: var(--panel) !important }
-button{ background: linear-gradient(180deg, #162943, #112236) !important }
+/* === Surface bindings (theme-controlled) === */
+body{ color-scheme: light }
+header{ background: var(--panel); box-shadow: var(--shadow) }
+.section{ background: var(--panel-2) }
+input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{ background: var(--panel-2); color: var(--ink); border-color: var(--border) }
+#previewControls{ background: var(--panel) }
+.banner{ background: var(--panel-2); border-color: var(--border); color: var(--ink) }
+.tag{ background: var(--accent); border:none; color:#fff }
+.dialog{ background: var(--panel) }
 </style>
 </head>
 <body>
@@ -150,7 +158,7 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
             <label>Sort order</label>
             <select id="sortMode">
               <option value="CALL" selected>Callsign (A→Z)</option>
-              <option value="PREFIX">by DXCC</option>
+              <option value="PREFIX">DXCC prefix (A→Z)</option>
             </select>
           </div>
           <div id="adifWarning" class="warn">Sample data is shown. Upload your ADIF to replace it.</div>
@@ -553,7 +561,18 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
         </div>
       </div>
 
-      <div class="version">Version v2.7</div>
+      <div class="footer-bar">
+        <div class="version">Version v2.7</div>
+        <div class="theme-switcher">
+          <label for="themeSelect" class="small muted">Theme</label>
+          <select id="themeSelect">
+            <option value="paper">Classic Paper</option>
+            <option value="maritime">Maritime Midnight</option>
+            <option value="dusk">Desert Dusk</option>
+            <option value="seaside">Seaside Daylight</option>
+          </select>
+        </div>
+      </div>
     </div>
   </aside>
 
@@ -641,6 +660,37 @@ function mm2pt(mm){ return mm*MM; } function pt2mm(pt){ return pt/MM; }
 function clamp(n,lo,hi){ return Math.max(lo, Math.min(hi,n)); }
 function parseCSVfloats(s){ if(!s) return []; return s.split(",").map(x=>parseFloat(x.trim()||"0")); }
 function parseCSVstrings(s){ if(!s) return []; return s.split(",").map(x=>x.trim().toUpperCase()).filter(Boolean); }
+const THEMES={
+  maritime:{ label:"Maritime Midnight", colorScheme:"dark", vars:{ '--bg':'#0b1724','--panel':'#0f1f2f','--panel-2':'#11263a','--ink':'#f0f7ff','--muted':'#8ba9c8','--border':'#1e3a56','--accent':'#2bb4d4','--accent-2':'#fdd384' } },
+  dusk:{ label:"Desert Dusk", colorScheme:"light", vars:{ '--bg':'#f6eee6','--panel':'#fff8f1','--panel-2':'#f2dfd0','--ink':'#473327','--muted':'#8c6f5e','--border':'#ead1c0','--accent':'#167287','--accent-2':'#f9a66c' } },
+  paper:{ label:"Classic Paper", colorScheme:"light", vars:{ '--bg':'#fdfbf7','--panel':'#ffffff','--panel-2':'#f5f1eb','--ink':'#302620','--muted':'#7d6d62','--border':'#dcd2c6','--accent':'#22577a','--accent-2':'#38a3a5' } },
+  seaside:{ label:"Seaside Daylight", colorScheme:"light", vars:{ '--bg':'#e8f8fb','--panel':'#ffffff','--panel-2':'#dff0f6','--ink':'#083049','--muted':'#5f93ad','--border':'#b3d7e6','--accent':'#0c6ca6','--accent-2':'#f26157' } },
+};
+let currentThemeName = 'maritime';
+function applyTheme(name, persist=true){
+  const resolved = Object.prototype.hasOwnProperty.call(THEMES, name) ? name : (currentThemeName || 'paper');
+  const theme = THEMES[resolved] || THEMES.paper;
+  currentThemeName = resolved;
+  const root = document.documentElement;
+  Object.entries(theme.vars).forEach(([key,value])=>{
+    root.style.setProperty(key, value);
+  });
+  if(document.body){
+    document.body.style.backgroundColor = theme.vars['--bg'];
+    document.body.style.colorScheme = theme.colorScheme || 'light';
+    document.body.dataset.theme = currentThemeName;
+  }
+  if(persist){ try{ localStorage.setItem('qslTheme', currentThemeName); }catch(e){}
+  }
+  const select=document.getElementById('themeSelect');
+  if(select && select.value!==currentThemeName){ select.value=currentThemeName; }
+}
+function initTheme(){
+  let saved=null;
+  try{ saved=localStorage.getItem('qslTheme'); }catch(e){ saved=null; }
+  const initial = (saved && THEMES[saved]) ? saved : 'maritime';
+  applyTheme(initial, false);
+}
 function downloadBlob(name, blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
 function setupHiDPICanvas(canvas, pageWpt, pageHpt, zoom){ const dpr=window.devicePixelRatio||1; const cssW=Math.round(pageWpt*zoom); const cssH=Math.round(pageHpt*zoom); canvas.style.width=cssW+"px"; canvas.style.height=cssH+"px"; canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr); const ctx=canvas.getContext('2d'); ctx.setTransform(canvas.width/pageWpt,0,0,canvas.height/pageHpt,0,0); return ctx; }
 
@@ -974,9 +1024,10 @@ function readConfig(){
       modes: new Set(parseCSVstrings(document.getElementById('fModes').value)),
       dxcc:  new Set(parseCSVstrings(document.getElementById('fDxcc').value)),
       qslField: document.getElementById('fQslField').value || "ANY",
-      qslStatus: document.getElementById('fQslStatus').value || "ALL",
+    qslStatus: document.getElementById('fQslStatus').value || "ALL",
     }
   };
+  cfg.themeName = currentThemeName || 'paper';
   if(mode==='qslCard'){
     cfg.cols = 1;
     cfg.rows = 1;
@@ -1465,6 +1516,8 @@ function applyConfigToUI(cfg){
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
   if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
   if(cfg.f && cfg.f.dxcc) document.getElementById('fDxcc').value = Array.from(cfg.f.dxcc).join(',');
+  if(cfg.themeName){ applyTheme(cfg.themeName, false); }
+  else if(currentThemeName){ applyTheme(currentThemeName, false); }
   document.querySelectorAll('.mode-option').forEach(btn=>{
     btn.classList.toggle('selected', btn.dataset.mode === (cfg.mode==='qslCard'?'qslCard':'labels'));
   });
@@ -1511,10 +1564,13 @@ function autoResizeOffsetCSVs(){
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
     if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor"].includes(el.id)) return;
+    if(el.id==='themeSelect') return;
     if(el.classList.contains('section-toggle') || el.classList.contains('mode-option')) return;
     el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
     el.addEventListener('change', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
   });
+  const themeSelect=document.getElementById('themeSelect');
+  if(themeSelect){ themeSelect.addEventListener('change', ()=>{ applyTheme(themeSelect.value); }); }
   document.querySelectorAll('.mode-option').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('.mode-option').forEach(b=>b.classList.remove('selected'));
@@ -1597,6 +1653,7 @@ function closePicker(){ picker.style.display="none"; }
 /* ===== Boot ===== */
 resetDefaultColumns();
 syncColArraysToDefaults();
+initTheme();
 initCollapsibles();
 bindInputs();
 loadSample();
