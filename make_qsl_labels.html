@@ -553,7 +553,7 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
         </div>
       </div>
 
-      <div class="version">Version v2.6</div>
+      <div class="version">Version v2.7</div>
     </div>
   </aside>
 
@@ -667,9 +667,19 @@ function fmtDate(s){ if(!s) return ""; s=s.trim(); return (s.length>=8&&/^\d{8}/
 function fmtTime(s){ if(!s) return ""; s=s.trim(); return (s.length>=4&&/^\d{4}/.test(s))?`${s.slice(0,2)}:${s.slice(2,4)}`:s; }
 function deriveCallPrefix(call){
   if(!call) return "";
-  const part = (call.split('/')?.pop() || call).trim();
-  const match = part.match(/^[A-Z0-9]+/i);
-  return match ? match[0].toUpperCase() : part.toUpperCase();
+  const parts = String(call).toUpperCase().split('/')
+    .map(p=>p.trim())
+    .filter(Boolean);
+  let best = parts[0] || '';
+  for(const part of parts){
+    const hasDigit = /[0-9]/.test(part);
+    const bestHasDigit = /[0-9]/.test(best);
+    if(hasDigit && (!bestHasDigit || part.length > best.length)){
+      best = part;
+    }
+  }
+  const match = best.match(/^[A-Z0-9]+/);
+  return match ? match[0] : best;
 }
 function bandFromFreq(freq){
   if(!freq) return "";
@@ -872,6 +882,8 @@ function computeColWidths(ctx, cfg, qsoRows, labelWpt){
 
 /* ===== Config & layout ===== */
 let layoutState = null; // stores current layout (mm)
+const layoutStateByMode = new Map();
+let currentLayoutMode = 'labels';
 function defaultLayout(cfg){
   const labelW_mm = (cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : (cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm)) / cfg.cols;
   const labelH_mm = (cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : cfg.labelHmm;
@@ -902,7 +914,8 @@ function readConfig(){
   const cardLabelX=parseFloat(document.getElementById('cardLabelX')?.value||"0");
   const cardLabelY=parseFloat(document.getElementById('cardLabelY')?.value||"0");
   const cardLabelRotation=parseFloat(document.getElementById('cardLabelRotation')?.value||"0");
-  const sortMode=(document.getElementById('sortMode')?.value||'CALL');
+  const rawSort=(document.getElementById('sortMode')?.value||'CALL');
+  const sortMode = rawSort === 'DXCC' ? 'PREFIX' : rawSort;
   const dims=pageDims(pm);
   const pageWmm = (mode==='qslCard') ? cardWidth : dims.w;
   const pageHmm = (mode==='qslCard') ? cardHeight : dims.h;
@@ -969,11 +982,19 @@ function readConfig(){
     cfg.rows = 1;
     cfg.labelHmm = cardLabelHeight;
   }
+  const key = cfg.mode || 'labels';
+  if(layoutState){ layoutStateByMode.set(currentLayoutMode, layoutState); }
+  currentLayoutMode = key;
+  const stored = layoutStateByMode.get(key);
+  if(stored){
+    layoutState = stored;
+  }
   if(!layoutState || !layoutState._custom){
     layoutState = defaultLayout(cfg);
   }
   if(layoutState.table){ layoutState.table.lineGapPt = cfg.lineGapPt; }
   cfg.layout = layoutState;
+  layoutStateByMode.set(key, layoutState);
   document.getElementById('colOffsets').value = cfg.colOffsets.join(',');
   document.getElementById('rowOffsets').value = cfg.rowOffsets.join(',');
   document.getElementById('minColMM').value   = cfg.minColMM.join(',');
@@ -1230,7 +1251,10 @@ async function downloadPDF(){
       pdfText(cfg.footerR, footerRPos.x, footerRPos.y, "right", "helvetica", "normal", cfg.sizeFooter, rotation);
     }
   }
-  doc.save('qsl_labels_avery3664.pdf');
+  const baseName = cfg.mode==='qslCard' ? 'qsl_card' : 'qsl_labels';
+  const suffix = cfg.sortMode==='PREFIX' ? '_by_prefix' : '';
+  const fileName = `${baseName}${suffix||''}.pdf`;
+  doc.save(fileName);
 }
 
 /* ===== Column UI & picker ===== */
@@ -1417,6 +1441,7 @@ layoutCanvas.addEventListener('pointermove', (e)=>{
   }
   L._custom = true;
   layoutState = L; 
+  layoutStateByMode.set(cfg.mode || currentLayoutMode, layoutState);
   renderEditor();
 });
 layoutCanvas.addEventListener('pointerup', (e)=>{ dragging=null; layoutCanvas.releasePointerCapture?.(e.pointerId); });
@@ -1430,6 +1455,7 @@ function applyConfigToUI(cfg){
     lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
     startRow:'startRow', startCol:'startCol', sortMode:'sortMode'
   };
+  if(cfg.sortMode==='DXCC') cfg.sortMode='PREFIX';
   for(const k in map){ if(cfg[k]!==undefined) document.getElementById(map[k]).value=cfg[k]; }
   if(cfg.fontBody) document.getElementById('fontBody').value=cfg.fontBody;
   if(cfg.fontMono) document.getElementById('fontMono').value=cfg.fontMono;
@@ -1531,12 +1557,28 @@ function bindInputs(){
   document.getElementById('downloadBtn').onclick=downloadPDF;
   document.getElementById('saveCfg').onclick=()=>{ const cfg=readConfig(); downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'})); };
   document.getElementById('loadCfg').addEventListener('change', async e=>{
-    const f=e.target.files?.[0]; if(!f) return; const txt=await f.text(); try{ const obj=JSON.parse(txt); applyConfigToUI(obj); if(obj.layout) layoutState=obj.layout; autoResizeOffsetCSVs(); recompute(); }catch{ alert("Invalid config JSON"); }
+    const f=e.target.files?.[0]; if(!f) return; const txt=await f.text();
+    try{
+      const obj=JSON.parse(txt);
+      if(layoutState){ layoutStateByMode.set(currentLayoutMode, layoutState); }
+      applyConfigToUI(obj);
+      if(obj.layout){
+        layoutState = obj.layout;
+        layoutState._custom = obj.layout._custom ?? true;
+        const targetMode = (obj.mode && obj.mode.toLowerCase()==='qslcard') ? 'qslCard' : (obj.mode || currentLayoutMode);
+        currentLayoutMode = targetMode;
+        layoutStateByMode.set(currentLayoutMode, layoutState);
+      }
+      autoResizeOffsetCSVs();
+      recompute();
+    }catch{
+      alert("Invalid config JSON");
+    }
   });
   document.getElementById('reloadSample').onclick=()=> loadSample();
   const editBtn=document.getElementById('editLayoutBtn');
   if(editBtn) editBtn.onclick=()=> toggleEditor(true);
-  document.getElementById('resetLayout').onclick=()=>{ const cfg=readConfig(); layoutState = defaultLayout(cfg); renderEditor(); };
+  document.getElementById('resetLayout').onclick=()=>{ const cfg=readConfig(); layoutState = defaultLayout(cfg); layoutState._custom = false; layoutStateByMode.set(cfg.mode||currentLayoutMode, layoutState); renderEditor(); };
   document.getElementById('applyLayout').onclick=()=>{ toggleEditor(false); };
   document.getElementById('closeEditor').onclick=()=> toggleEditor(false);
   updateModeVisibility();
