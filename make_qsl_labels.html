@@ -146,6 +146,13 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
             <label>ADIF file</label>
             <input id="adifFile" type="file" accept=".adi,.adif,.txt" />
           </div>
+          <div class="row">
+            <label>Sort order</label>
+            <select id="sortMode">
+              <option value="CALL" selected>Callsign (A→Z)</option>
+              <option value="PREFIX">by DXCC</option>
+            </select>
+          </div>
           <div id="adifWarning" class="warn">Sample data is shown. Upload your ADIF to replace it.</div>
         </div>
       </div>
@@ -178,6 +185,7 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
           </div>
           <div class="row"><label>Bands (CSV)</label><input id="fBands" type="text" placeholder="e.g. 20M,40M"></div>
           <div class="row"><label>Modes (CSV)</label><input id="fModes" type="text" placeholder="e.g. CW,SSB,FT8"></div>
+          <div class="row"><label>DXCC / Prefix (CSV)</label><input id="fDxcc" type="text" placeholder="e.g. JA, DL"></div>
           <div class="row">
             <label>QSL field</label>
             <select id="fQslField">
@@ -319,10 +327,10 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
           <p class="section-hint">Dial in your card size and fine-tune the printable label area.</p>
           <div class="row"><label>Card width (mm)</label><input id="cardWidth" type="number" step="0.5" value="150"></div>
           <div class="row"><label>Card height (mm)</label><input id="cardHeight" type="number" step="0.5" value="100"></div>
-          <div class="row"><label>Label width (mm)</label><input id="cardLabelWidth" type="number" step="0.5" value="70"></div>
-          <div class="row"><label>Label height (mm)</label><input id="cardLabelHeight" type="number" step="0.5" value="35"></div>
-          <div class="row"><label>Label X offset (mm)</label><input id="cardLabelX" type="number" step="0.5" value="0"></div>
-          <div class="row"><label>Label Y offset (mm)</label><input id="cardLabelY" type="number" step="0.5" value="0"></div>
+          <div class="row"><label>Label width (mm)</label><input id="cardLabelWidth" type="number" step="0.5" value="60"></div>
+          <div class="row"><label>Label height (mm)</label><input id="cardLabelHeight" type="number" step="0.5" value="30"></div>
+          <div class="row"><label>Label X offset (mm)</label><input id="cardLabelX" type="number" step="0.5" value="60"></div>
+          <div class="row"><label>Label Y offset (mm)</label><input id="cardLabelY" type="number" step="0.5" value="50"></div>
           <div class="row"><label>Label rotation (deg)</label><input id="cardLabelRotation" type="number" step="0.5" value="0"></div>
         </div>
       </div>
@@ -545,7 +553,7 @@ button{ background: linear-gradient(180deg, #162943, #112236) !important }
         </div>
       </div>
 
-      <div class="version">Version v2.2</div>
+      <div class="version">Version v2.6</div>
     </div>
   </aside>
 
@@ -657,6 +665,12 @@ function parseADIF(text){
 }
 function fmtDate(s){ if(!s) return ""; s=s.trim(); return (s.length>=8&&/^\d{8}/.test(s))?`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`:s; }
 function fmtTime(s){ if(!s) return ""; s=s.trim(); return (s.length>=4&&/^\d{4}/.test(s))?`${s.slice(0,2)}:${s.slice(2,4)}`:s; }
+function deriveCallPrefix(call){
+  if(!call) return "";
+  const part = (call.split('/')?.pop() || call).trim();
+  const match = part.match(/^[A-Z0-9]+/i);
+  return match ? match[0].toUpperCase() : part.toUpperCase();
+}
 function bandFromFreq(freq){
   if(!freq) return "";
   const f=parseFloat(freq);
@@ -706,11 +720,21 @@ function buildRows(recs){
     if((!band || band==="") && (propMode.includes("SAT") || satName)){
       band = "SAT";
     }
+    const dxccRaw = (r.DXCC||"").toString().trim();
+    const dxccParsed = dxccRaw ? parseInt(dxccRaw,10) : NaN;
+    const dxccNum = Number.isFinite(dxccParsed) ? dxccParsed : null;
+    const dxccCountry = (r.COUNTRY || r.APP_DXKEEPER_COUNTRY || "").toString().trim();
+    const callPrefix = deriveCallPrefix(call);
+    const dxccPrefix = (r.APP_DXKEEPER_DXCCPREFIX || r.PFX || callPrefix || "").toString().trim().toUpperCase();
     rows.push({
       CALL:call, _DATE_RAW:date_raw, _TIME_RAW:time_raw,
       DATE:fmtDate(date_raw), TIME:fmtTime(time_raw),
       BAND:band,
       MODE:normMode(r.MODE,r.SUBMODE),
+      _DXCC_NUM:dxccNum,
+      _DXCC_NAME:dxccCountry,
+      _DXCC_PREFIX:dxccPrefix,
+      _CALL_PREFIX:callPrefix,
       QSL:qslValue(r), ...r
     });
   }
@@ -731,6 +755,15 @@ function rowPassesFilters(row, f){
   if(f.to && (!d || d > f.to)) return false;
   if(f.bands && f.bands.size){ const b=(row.BAND||"").toUpperCase(); if(!f.bands.has(b)) return false; }
   if(f.modes && f.modes.size){ const m=(row.MODE||"").toUpperCase(); if(!f.modes.has(m)) return false; }
+  if(f.dxcc && f.dxcc.size){
+    const dxccNumStr = (row._DXCC_NUM!=null && Number.isFinite(row._DXCC_NUM)) ? String(row._DXCC_NUM) : "";
+    const dxccName = (row._DXCC_NAME || row.COUNTRY || "").toString().toUpperCase();
+    const dxccPrefix = (row._DXCC_PREFIX || "").toString().toUpperCase();
+    const callPrefix = (row._CALL_PREFIX || "").toString().toUpperCase();
+    const callFull = (row.CALL || "").toString().toUpperCase();
+    const match = f.dxcc.has(dxccNumStr) || (dxccName && f.dxcc.has(dxccName)) || (dxccPrefix && f.dxcc.has(dxccPrefix)) || (callPrefix && f.dxcc.has(callPrefix)) || (callFull && f.dxcc.has(callFull));
+    if(!match) return false;
+  }
   if(f.qslStatus && f.qslStatus!=="ALL"){
     const val = getQslFieldVal(row, f.qslField);
     if(f.qslStatus==="N"){ if(val!=="N") return false; }
@@ -742,11 +775,68 @@ function rowPassesFilters(row, f){
 }
 
 /* ===== Grouping & layout ===== */
-function groupLabels(rows, rowsPerLabel){
-  const by=new Map(); for(const r of rows){ if(!by.has(r.CALL)) by.set(r.CALL,[]); by.get(r.CALL).push(r); }
-  for(const [k,arr] of by){ arr.sort((a,b)=>(a._DATE_RAW+a._TIME_RAW).localeCompare(b._DATE_RAW+b._TIME_RAW)); }
-  const keys=[...by.keys()].sort();
-  const labels=[]; for(const k of keys){ const arr=by.get(k); for(let i=0;i<arr.length;i+=rowsPerLabel){ labels.push([k, arr.slice(i,i+rowsPerLabel)]); } }
+function groupLabels(rows, rowsPerLabel, sortMode){
+  const by=new Map();
+  const meta=new Map();
+  for(const r of rows){
+    if(!by.has(r.CALL)) by.set(r.CALL,[]);
+    by.get(r.CALL).push(r);
+    if(!meta.has(r.CALL)){
+      const dxcc = (typeof r._DXCC_NUM === 'number' && Number.isFinite(r._DXCC_NUM)) ? r._DXCC_NUM : Infinity;
+      const name = (r._DXCC_NAME || r.COUNTRY || r._DXCC_PREFIX || '').toString().toUpperCase();
+      const prefix = (r._DXCC_PREFIX || r._CALL_PREFIX || '').toString().toUpperCase();
+      const callPrefix = (r._CALL_PREFIX || '').toString().toUpperCase();
+      meta.set(r.CALL, { dxcc, name, prefix, callPrefix, call: r.CALL });
+    }else{
+      const info = meta.get(r.CALL);
+      const dxccCandidate = (typeof r._DXCC_NUM === 'number' && Number.isFinite(r._DXCC_NUM)) ? r._DXCC_NUM : Infinity;
+      if(info.dxcc === Infinity && dxccCandidate !== Infinity){ info.dxcc = dxccCandidate; }
+      if(!info.name){
+        const altName = (r._DXCC_NAME || r.COUNTRY || r._DXCC_PREFIX || '').toString().toUpperCase();
+        if(altName) info.name = altName;
+      }
+      if(!info.prefix && (r._DXCC_PREFIX || r._CALL_PREFIX)){ info.prefix = (r._DXCC_PREFIX || r._CALL_PREFIX || '').toString().toUpperCase(); }
+      if(!info.callPrefix && r._CALL_PREFIX){ info.callPrefix = r._CALL_PREFIX.toString().toUpperCase(); }
+    }
+  }
+  for(const arr of by.values()){
+    arr.sort((a,b)=>(a._DATE_RAW+a._TIME_RAW).localeCompare(b._DATE_RAW+b._TIME_RAW));
+  }
+  const keys=[...by.keys()];
+  const mode=(sortMode||'CALL').toUpperCase();
+  keys.sort((a,b)=>{
+    if(mode==='DXCC'){
+      const ma=meta.get(a)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:a};
+      const mb=meta.get(b)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:b};
+      if(ma.dxcc < mb.dxcc) return -1;
+      if(ma.dxcc > mb.dxcc) return 1;
+      const nameCompare=(ma.name||'').localeCompare(mb.name||'');
+      if(nameCompare!==0) return nameCompare;
+      const prefixCompare=(ma.prefix||'').localeCompare(mb.prefix||'');
+      if(prefixCompare!==0) return prefixCompare;
+      const callPrefCompare=(ma.callPrefix||'').localeCompare(mb.callPrefix||'');
+      if(callPrefCompare!==0) return callPrefCompare;
+    } else if(mode==='PREFIX'){
+      const ma=meta.get(a)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:a};
+      const mb=meta.get(b)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:b};
+      const prefixCompare=(ma.prefix||'').localeCompare(mb.prefix||'');
+      if(prefixCompare!==0) return prefixCompare;
+      const callPrefCompare=(ma.callPrefix||'').localeCompare(mb.callPrefix||'');
+      if(callPrefCompare!==0) return callPrefCompare;
+      const dxccCompare = (ma.dxcc||Infinity) - (mb.dxcc||Infinity);
+      if(dxccCompare!==0) return dxccCompare;
+      const nameCompare=(ma.name||'').localeCompare(mb.name||'');
+      if(nameCompare!==0) return nameCompare;
+    }
+    return a.localeCompare(b);
+  });
+  const labels=[];
+  for(const k of keys){
+    const arr=by.get(k);
+    for(let i=0;i<arr.length;i+=rowsPerLabel){
+      labels.push([k, arr.slice(i,i+rowsPerLabel)]);
+    }
+  }
   return labels;
 }
 
@@ -812,11 +902,13 @@ function readConfig(){
   const cardLabelX=parseFloat(document.getElementById('cardLabelX')?.value||"0");
   const cardLabelY=parseFloat(document.getElementById('cardLabelY')?.value||"0");
   const cardLabelRotation=parseFloat(document.getElementById('cardLabelRotation')?.value||"0");
+  const sortMode=(document.getElementById('sortMode')?.value||'CALL');
   const dims=pageDims(pm);
   const pageWmm = (mode==='qslCard') ? cardWidth : dims.w;
   const pageHmm = (mode==='qslCard') ? cardHeight : dims.h;
   const cfg={
     mode,
+    sortMode,
     pageSize: pm,
     pageWmm,
     pageHmm,
@@ -867,6 +959,7 @@ function readConfig(){
       to:   parseYMD(document.getElementById('fDateTo').value || ""),
       bands: new Set(parseCSVstrings(document.getElementById('fBands').value)),
       modes: new Set(parseCSVstrings(document.getElementById('fModes').value)),
+      dxcc:  new Set(parseCSVstrings(document.getElementById('fDxcc').value)),
       qslField: document.getElementById('fQslField').value || "ANY",
       qslStatus: document.getElementById('fQslStatus').value || "ALL",
     }
@@ -999,7 +1092,7 @@ function shrinkAndDraw(ctx, text, x, y, maxW, font, minSize=5, step=0.3){
 /* ===== Filters + Start-at offset ===== */
 function applyFilters(allRows, f){ return allRows.filter(r=>rowPassesFilters(r, f)); }
 function buildLabelsWithOffset(filteredRows, cfg){
-  const grouped = groupLabels(filteredRows, cfg.rowsPerLabel);
+  const grouped = groupLabels(filteredRows, cfg.rowsPerLabel, cfg.sortMode);
   if(cfg.mode==='qslCard'){ return grouped; }
   const skipSlots = Math.max(0, (cfg.startRow-1)*cfg.cols + (cfg.startCol-1));
   if(skipSlots===0) return grouped;
@@ -1335,7 +1428,7 @@ function applyConfigToUI(cfg){
     xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', footerL:'footerL', footerR:'footerR',
     footerRShiftmm:'footerRShift', footerYShiftmm:'footerYShift', rowsPerLabel:'rowsPerLabel', colSlackPt:'slackPt',
     lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
-    startRow:'startRow', startCol:'startCol'
+    startRow:'startRow', startCol:'startCol', sortMode:'sortMode'
   };
   for(const k in map){ if(cfg[k]!==undefined) document.getElementById(map[k]).value=cfg[k]; }
   if(cfg.fontBody) document.getElementById('fontBody').value=cfg.fontBody;
@@ -1345,6 +1438,7 @@ function applyConfigToUI(cfg){
   if(cfg.rowOffsets) document.getElementById('rowOffsets').value = cfg.rowOffsets.join(",");
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
   if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
+  if(cfg.f && cfg.f.dxcc) document.getElementById('fDxcc').value = Array.from(cfg.f.dxcc).join(',');
   document.querySelectorAll('.mode-option').forEach(btn=>{
     btn.classList.toggle('selected', btn.dataset.mode === (cfg.mode==='qslCard'?'qslCard':'labels'));
   });
