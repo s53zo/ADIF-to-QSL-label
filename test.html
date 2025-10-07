@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-PZCLRVBKKT"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);} 
+  gtag('js', new Date());
+  gtag('config', 'G-PZCLRVBKKT');
+</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#ffffff" />
+<title>ADIF to QSL Labels helper</title>
+<style>
+/* ===== Light & Dark Themes ===== */
+:root{
+--bg:#f8fafc; /* page background */
+--panel:#ffffff; /* primary surface */
+--panel-2:#f1f5f9; /* secondary surface */
+--ink:#0f172a; /* text */
+--muted:#64748b; /* secondary text */
+--accent:#2563eb; /* brand */
+--accent-2:#38bdf8; /* secondary brand */
+--border:#e2e8f0; /* borders */
+--ring:#3b82f6; /* focus ring */
+--warn:#d97706; /* warning */
+--good:#16a34a; /* success */
+--shadow:0 4px 12px rgba(0,0,0,.08);
+--radius:12px;
+}
+@media (prefers-color-scheme: dark){
+:root{ --bg:#0f172a; --panel:#1e293b; --panel-2:#111827; --ink:#f8fafc; --muted:#94a3b8; --border:#334155; --shadow:0 8px 24px rgba(0,0,0,.4) }
+}
+
+body{margin:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, Roboto, Helvetica, Arial; background:var(--bg); color:var(--ink)}
+body.card-mode .mode-labels-only{display:none !important}
+body:not(.card-mode) .mode-card-only{display:none !important}
+.app{display:grid; grid-template-columns: 380px 1fr; min-height:100vh}
+aside{border-right:1px solid var(--border); background:var(--panel); padding:18px 20px; overflow:auto}
+main{display:flex; flex-direction:column; height:100vh; position:sticky; top:0; align-self:start}
+
+.mode-toggle{display:inline-flex; gap:12px; background:var(--panel-2); border-radius:999px; padding:6px; border:1px solid var(--border); box-shadow:var(--shadow)}
+.mode-option{flex:1; border:none; background:transparent; color:var(--muted); padding:10px 18px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s}
+.mode-option.selected{background:var(--accent); color:#fff; box-shadow:0 2px 6px rgba(37,99,235,0.25)}
+.mode-option:not(.selected):hover{color:var(--ink); background:rgba(148,163,184,0.15)}
+
+header{position:sticky; top:0; z-index:5; display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); align-items:center; background:var(--panel-2); box-shadow:var(--shadow)}
+header h1{font-size:16px; font-weight:700; margin:0; color:var(--ink)}
+header .spacer{flex:1}
+
+.grid{display:grid; gap:14px}
+.section{border:1px solid var(--border); border-radius:var(--radius); padding:14px; background:var(--panel); box-shadow:var(--shadow)}
+.section h3{margin:0 0 10px 0; font-size:13px; color:var(--muted); text-transform:uppercase}
+
+.section.collapsible{padding:0; overflow:hidden}
+.collapsible > .section-toggle{width:100%; border:none; background:var(--panel); color:var(--ink); display:flex; align-items:center; gap:12px; padding:16px 18px; cursor:pointer; font-size:14px; font-weight:600; text-align:left; transition:background .2s ease, color .2s ease}
+.collapsible > .section-toggle:focus-visible{outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.3)}
+.collapsible > .section-toggle:hover{background:var(--panel-2)}
+.collapsible .section-icon{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:rgba(59,130,246,0.15); color:var(--accent)}
+.collapsible .section-icon svg{width:14px; height:14px}
+.collapsible .section-title{flex:1; letter-spacing:0.02em}
+.collapsible .section-chevron{display:inline-flex; transition:transform .2s ease; color:var(--muted)}
+.collapsible .section-chevron svg{width:14px; height:14px}
+.collapsible > .section-body{padding:16px 18px 18px 18px; border-top:1px solid var(--border); background:var(--panel)}
+.collapsible > .section-body.collapsed{display:none}
+.collapsible.is-collapsed > .section-toggle .section-chevron{transform:rotate(-90deg)}
+.collapsible:not(.is-collapsed) > .section-toggle .section-chevron{transform:rotate(0deg)}
+.section-hint{margin:0 0 14px 0; font-size:12px; color:var(--muted)}
+.subsection{border:1px solid var(--border); border-radius:10px; margin-top:12px; overflow:hidden; background:var(--panel-2)}
+.subsection.collapsible > .section-toggle{background:var(--panel-2)}
+.subsection.collapsible > .section-toggle:hover{background:var(--panel)}
+.subsection.collapsible > .section-body{background:var(--panel-2)}
+.subsection:first-of-type{margin-top:0}
+.version{margin-top:16px; text-align:center; font-size:12px; color:var(--muted)}
+
+label{font-size:13px; color:var(--muted)}
+input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{
+width:100%; padding:9px 12px; border-radius:10px; border:1px solid var(--border); background:var(--panel-2); color:var(--ink);
+}
+input[type="text"]::placeholder{color:var(--muted)}
+input:focus, select:focus{ outline:none; border-color:var(--ring); box-shadow:0 0 0 3px rgba(59,130,246,.3)}
+
+button{border-radius:10px; padding:10px 14px; font-size:14px; border:1px solid var(--border); color:var(--ink); background:var(--panel-2); cursor:pointer; transition:all .2s}
+button:hover{background:var(--accent); color:white; border-color:var(--accent)}
+button.primary{background:var(--accent); color:white; border-color:var(--accent)}
+button.primary:hover{background:#1d4ed8}
+
+.tag{padding:2px 8px; border-radius:999px; background:var(--accent-2); color:#fff; font-size:11px; margin-left:8px}
+.stats{font-size:12px; color:var(--muted); margin-left:12px}
+
+canvas{background:#ffffff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow)}
+.preview-wrap{padding:16px; overflow:auto; flex:1; background:var(--panel-2)}
+.controls{display:flex; gap:10px; align-items:center}
+.overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,0.65); z-index:200}
+.overlay .dialog{min-width:280px; padding:18px; border-radius:var(--radius); box-shadow:var(--shadow)}
+.overlay .row{display:flex; gap:12px; margin-bottom:12px}
+.overlay .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:10px}
+
+.banner{margin:10px 16px 0 16px; padding:12px 14px; border-radius:10px; background:#e0f2fe; color:#0369a1; font-size:13px}
+.warn{color:var(--warn); font-size:12px}
+.good{color:var(--good); font-size:12px}
+
+.footer-bar{margin-top:18px; padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:var(--panel); display:flex; align-items:center; gap:16px; justify-content:space-between}
+.footer-bar label{font-size:12px; color:var(--muted); margin-right:8px}
+.footer-bar select{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--panel-2); color:var(--ink)}
+.footer-bar select:focus{outline:none; box-shadow:0 0 0 3px rgba(37,100,190,0.25)}
+.footer-bar .theme-switcher{display:flex; align-items:center; gap:10px}
+.footer-bar .theme-switcher select{min-width:180px}
+
+@media (max-width: 1200px){
+.app{grid-template-columns:1fr}
+aside{border-right:none; border-bottom:1px solid var(--border)}
+main{position:static; height:auto}
+.mode-toggle{width:100%; justify-content:space-between}
+.mode-option{flex:1}
+.footer-bar{flex-direction:column; align-items:flex-start}
+.footer-bar .theme-switcher{width:100%; justify-content:space-between}
+.footer-bar .theme-switcher select{flex:1}
+}
+/* === Surface bindings (theme-controlled) === */
+body{ color-scheme: light }
+header{ background: var(--panel); box-shadow: var(--shadow) }
+.section{ background: var(--panel-2) }
+input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{ background: var(--panel-2); color: var(--ink); border-color: var(--border) }
+#previewControls{ background: var(--panel) }
+.banner{ background: var(--panel-2); border-color: var(--border); color: var(--ink) }
+.tag{ background: var(--accent); border:none; color:#fff }
+.dialog{ background: var(--panel) }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="grid">
+      <div class="section collapsible" data-section="data" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 3h8l5 5v13H7z"></path>
+              <path d="M15 3v5h5"></path>
+            </svg>
+          </span>
+          <span class="section-title">Data</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Load your ADIF log or try the bundled sample entries. Need to tweak fields? Open the Columns section below.</p>
+          <div class="row">
+            <label>ADIF file</label>
+            <input id="adifFile" type="file" accept=".adi,.adif,.txt" />
+          </div>
+          <div class="row">
+            <label>Sort order</label>
+            <select id="sortMode">
+              <option value="CALL" selected>Callsign (A→Z)</option>
+              <option value="PREFIX">DXCC prefix (A→Z)</option>
+            </select>
+          </div>
+          <div id="adifWarning" class="warn">Sample data is shown. Upload your ADIF to replace it.</div>
+        </div>
+      </div>
+
+      <div class="section collapsible" data-section="filters" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16l-6 7v5l-4 2v-7z"></path>
+            </svg>
+          </span>
+          <span class="section-title">Filters</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Narrow QSOs by date, band, mode, or QSL status before printing.</p>
+          <div class="row2">
+            <div>
+              <label class="small muted">Date from</label>
+              <input id="fDateFrom" type="date" />
+            </div>
+            <div>
+              <label class="small muted">Date to</label>
+              <input id="fDateTo" type="date" />
+            </div>
+          </div>
+          <div class="row"><label>Bands (CSV)</label><input id="fBands" type="text" placeholder="e.g. 20M,40M"></div>
+          <div class="row"><label>Modes (CSV)</label><input id="fModes" type="text" placeholder="e.g. CW,SSB,FT8"></div>
+          <div class="row"><label>DXCC / Prefix (CSV)</label><input id="fDxcc" type="text" placeholder="e.g. JA, DL"></div>
+          <div class="row">
+            <label>QSL field</label>
+            <select id="fQslField">
+              <option value="ANY" selected>Any of (QSL_RCVD / LOTW_QSL_RCVD / EQSL_QSL_RCVD)</option>
+              <option value="QSL_RCVD">QSL_RCVD</option>
+              <option value="LOTW_QSL_RCVD">LOTW_QSL_RCVD</option>
+              <option value="EQSL_QSL_RCVD">EQSL_QSL_RCVD</option>
+            </select>
+          </div>
+          <div class="row">
+            <label>QSL status</label>
+            <select id="fQslStatus">
+              <option value="ALL" selected>All</option>
+              <option value="N">Needed (N)</option>
+              <option value="Y">Received (Y)</option>
+              <option value="I">Ignore (I)</option>
+              <option value="NONE">Not received (empty or N)</option>
+            </select>
+          </div>
+          <p class="help">Filters apply live to preview & PDF.</p>
+        </div>
+      </div>
+
+      <div class="section collapsible" id="modeSection" data-section="mode" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+              <path d="M12 5v14"></path>
+            </svg>
+          </span>
+          <span class="section-title">What do you want to print?</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Choose between multi-label sheets and individual QSL cards.</p>
+          <div class="mode-toggle" role="radiogroup" aria-label="Output mode">
+            <button id="modeLabels" data-mode="labels" class="mode-option selected">Label sheets</button>
+            <button id="modeCard" data-mode="qslCard" class="mode-option">Direct QSL card</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section collapsible" id="pageSection" data-section="page" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <path d="M4 12h16"></path>
+              <path d="M12 4v16"></path>
+            </svg>
+          </span>
+          <span class="section-title">Page & Start Position</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Align the template with your sheet before printing multiples.</p>
+          <div class="row mode-labels-only"><label>Page Size</label>
+            <select id="pageSize">
+              <option value="A4" selected>A4 (210×297mm)</option>
+              <option value="LETTER">Letter (8.5×11")</option>
+            </select>
+          </div>
+          <div class="row mode-labels-only"><label>Cols</label><input id="cols" type="number" value="3" min="1"></div>
+          <div class="row mode-labels-only"><label>Rows</label><input id="rows" type="number" value="8" min="1"></div>
+          <div class="row mode-labels-only"><label>Label height (mm)</label><input id="labelH" type="number" step="0.5" value="33.8"></div>
+          <div class="row mode-labels-only"><label>Left margin (mm)</label><input id="marginL" type="number" step="0.5" value="3"></div>
+          <div class="row mode-labels-only"><label>Right margin (mm)</label><input id="marginR" type="number" step="0.5" value="3"></div>
+          <div class="row mode-labels-only"><label>Top margin (mm)</label><input id="marginT" type="number" step="0.5" value="5"></div>
+          <div class="row2 mode-labels-only">
+            <div>
+              <label class="small muted">Start at row</label>
+              <input id="startRow" type="number" min="1" value="1" />
+            </div>
+            <div>
+              <label class="small muted">Start at column</label>
+              <input id="startCol" type="number" min="1" value="1" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section collapsible" id="columnsSection" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+              <path d="M3 10h18"></path>
+              <path d="M9 4v16"></path>
+              <path d="M15 4v16"></path>
+            </svg>
+          </span>
+          <span class="section-title">Columns</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Choose which ADIF fields appear on each label and add custom headers.</p>
+          <div class="columns" id="columns">
+            <div class="muted">Columns (header + source). Defaults match Avery 3664.</div>
+          </div>
+          <div class="controls">
+            <button id="addCol">+ Add column</button>
+            <button id="resetCols">Reset to 3664 defaults</button>
+          </div>
+          <div class="muted" style="margin-top:8px">Min widths &amp; Static widths (mm) match the number of columns:</div>
+          <div class="row"><label>Min col widths (mm, CSV)</label><input id="minColMM" type="text" value="12,10,10,10,6"></div>
+          <div class="row"><label>Static col widths (mm, CSV)</label><input id="staticColMM" type="text" value="20,12,12,18,8"></div>
+        </div>
+      </div>
+
+      <div class="section collapsible mode-card-only" id="cardSection" data-section="card" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="7" width="18" height="10" rx="2"></rect>
+              <path d="M7 10h10"></path>
+            </svg>
+          </span>
+          <span class="section-title">QSL Card</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Dial in your card size and fine-tune the printable label area.</p>
+          <div class="row"><label>Card width (mm)</label><input id="cardWidth" type="number" step="0.5" value="150"></div>
+          <div class="row"><label>Card height (mm)</label><input id="cardHeight" type="number" step="0.5" value="100"></div>
+          <div class="row"><label>Label width (mm)</label><input id="cardLabelWidth" type="number" step="0.5" value="60"></div>
+          <div class="row"><label>Label height (mm)</label><input id="cardLabelHeight" type="number" step="0.5" value="30"></div>
+          <div class="row"><label>Label X offset (mm)</label><input id="cardLabelX" type="number" step="0.5" value="60"></div>
+          <div class="row"><label>Label Y offset (mm)</label><input id="cardLabelY" type="number" step="0.5" value="50"></div>
+          <div class="row"><label>Label rotation (deg)</label><input id="cardLabelRotation" type="number" step="0.5" value="0"></div>
+        </div>
+      </div>
+
+      <div class="section collapsible" id="advancedSection" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="false">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V22a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H22a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </span>
+          <span class="section-title">Advanced controls</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body collapsed">
+          <p class="section-hint">Need precise alignment or styling tweaks? Expand the tools below.</p>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M12 2v3"></path>
+                  <path d="M12 19v3"></path>
+                  <path d="M20 12h-3"></path>
+                  <path d="M7 12H4"></path>
+                </svg>
+              </span>
+              <span class="section-title">Offsets</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Nudge the label grid when your printer feeds a bit off.</p>
+              <div class="row"><label>Global X (mm)</label><input id="xOffset" type="number" step="0.5" value="0"></div>
+              <div class="row"><label>Global Y (mm)</label><input id="yOffset" type="number" step="0.5" value="5"></div>
+              <div class="row"><label>Per-column offsets (mm, CSV)</label><input id="colOffsets" type="text" value="0,0,0"></div>
+              <div class="row"><label>Per-row offsets (mm, CSV)</label><input id="rowOffsets" type="text" value="0,0,0,0,0,0,0,0"></div>
+              <p class="help">CSV lists auto-resize when you change columns/rows.</p>
+            </div>
+          </div>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="5" y="7" width="14" height="10" rx="2"></rect>
+                  <path d="M9 11h6"></path>
+                </svg>
+              </span>
+              <span class="section-title">Inside label</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Control padding and footer text for each printed label.</p>
+              <div class="row"><label>Padding X (mm)</label><input id="padX" type="number" step="0.5" value="2"></div>
+              <div class="row"><label>Padding Y (mm)</label><input id="padY" type="number" step="0.5" value="2"></div>
+              <div class="row"><label>Left footer text</label><input id="footerL" type="text" value="SY: Blondie, South Adriatic sea"></div>
+              <div class="row"><label>Right footer text</label><input id="footerR" type="text" value="TNX & 73"></div>
+              <div class="row"><label>Right footer shift (mm)</label><input id="footerRShift" type="number" step="0.5" value="5"></div>
+              <div class="row"><label>Footer Y shift (mm)</label><input id="footerYShift" type="number" step="0.5" value="2"></div>
+            </div>
+          </div>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                  <path d="M3 11h18"></path>
+                  <path d="M9 5v14"></path>
+                  <path d="M15 5v14"></path>
+                </svg>
+              </span>
+              <span class="section-title">Table</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Adjust table rows, columns, and spacing for each label.</p>
+              <div class="row"><label>Rows per label</label><input id="rowsPerLabel" type="number" min="1" value="4"></div>
+              <div class="row"><label>Dynamic widths</label>
+                <select id="dynamicCols">
+                  <option value="1" selected>On</option>
+                  <option value="0">Off (static)</option>
+                </select>
+              </div>
+              <div class="row"><label>Shrink only</label>
+                <select id="shrinkOnly">
+                  <option value="1" selected>On (leave free space)</option>
+                  <option value="0">Off (stretch to fill)</option>
+                </select>
+              </div>
+              <div class="row"><label>Slack (pt)</label><input id="slackPt" type="number" step="0.5" value="2"></div>
+              <div class="row"><label>Line gap (pt)</label><input id="lineGap" type="number" step="0.5" value="9"></div>
+
+            </div>
+          </div>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 20h14"></path>
+                  <path d="M7 4h10"></path>
+                  <path d="M9 4v12"></path>
+                </svg>
+              </span>
+              <span class="section-title">Fonts and date format</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Pick fonts and sizes for headers, rows, and footers.</p>
+              <div class="row">
+                <label>Body font</label>
+                <select id="fontBody">
+                  <option>Helvetica, Arial, sans-serif</option>
+                  <option>Arial, Helvetica, sans-serif</option>
+                  <option>Inter, Helvetica, Arial, sans-serif</option>
+                  <option>Roboto, Helvetica, Arial, sans-serif</option>
+                  <option>Times New Roman, Times, serif</option>
+                  <option>Georgia, Times, serif</option>
+                </select>
+              </div>
+              <div class="row">
+                <label>Mono font</label>
+                <select id="fontMono">
+                  <option>Courier New, Courier, monospace</option>
+                  <option>Consolas, Monaco, monospace</option>
+                  <option>Menlo, Monaco, monospace</option>
+                  <option>Ubuntu Mono, monospace</option>
+                  <option>DejaVu Sans Mono, monospace</option>
+                </select>
+              </div>
+              <div class="row">
+                <label>Bold font</label>
+                <select id="fontBold">
+                  <option>Helvetica, Arial, sans-serif</option>
+                  <option>Arial, Helvetica, sans-serif</option>
+                  <option>Inter, Helvetica, Arial, sans-serif</option>
+                  <option>Roboto, Helvetica, Arial, sans-serif</option>
+                  <option>Times New Roman, Times, serif</option>
+                  <option>Georgia, Times, serif</option>
+                </select>
+              </div>
+              <div class="row">
+                <label>Date format</label>
+                <select id="dateFormat">
+                  <option value="YYYY-MM-DD" selected>YYYY-MM-DD (ISO)</option>
+                  <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+                  <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+                  <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                </select>
+              </div>
+              <div class="row"><label>To Radio (pt)</label><input id="sizeToRadio" type="number" step="0.5" value="7.5"></div>
+              <div class="row"><label>Callsign (pt)</label><input id="sizeCallsign" type="number" step="0.5" value="14"></div>
+              <div class="row"><label>Headers (pt)</label><input id="sizeHeaders" type="number" step="0.5" value="7.2"></div>
+              <div class="row"><label>Rows (pt)</label><input id="sizeRows" type="number" step="0.5" value="8.2"></div>
+              <div class="row"><label>Footer (pt)</label><input id="sizeFooter" type="number" step="0.5" value="7.2"></div>
+            </div>
+          </div>
+
+          <div class="subsection collapsible" data-initial="collapsed">
+            <button class="section-toggle" type="button" aria-expanded="false">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 8l-7 7-4-4"></path>
+                  <path d="M20 12a8 8 0 1 1-8-8"></path>
+                </svg>
+              </span>
+              <span class="section-title">Debug</span>
+              <span class="section-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 10l4 4 4-4"></path>
+                </svg>
+              </span>
+            </button>
+            <div class="section-body collapsed">
+              <p class="section-hint">Show outlines to verify printable areas before you commit.</p>
+              <div class="row"><label>Label outlines</label><select id="dbgOutline"><option value="0">Off</option><option value="1">On</option></select></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="section collapsible" data-section="config" data-initial="collapsed">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v12"></path>
+              <path d="M8 11l4 4 4-4"></path>
+              <rect x="4" y="19" width="16" height="2" rx="1"></rect>
+            </svg>
+          </span>
+          <span class="section-title">Config</span>
+          <span class="section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 10l4 4 4-4"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="section-body">
+          <p class="section-hint">Export or load a JSON snapshot of every setting.</p>
+          <div class="controls">
+            <button id="saveCfg">Save config</button>
+            <input id="loadCfg" type="file" accept=".json" />
+          </div>
+          <p class="help">Saves/loads JSON with all your settings (including columns & layout).</p>
+        </div>
+      </div>
+
+      <div class="footer-bar">
+        <div class="version">Version v2.7</div>
+        <div class="theme-switcher">
+          <label for="themeSelect" class="small muted">Theme</label>
+          <select id="themeSelect">
+            <option value="paper">Classic Paper</option>
+            <option value="maritime">Maritime Midnight</option>
+            <option value="dusk">Desert Dusk</option>
+            <option value="seaside">Seaside Daylight</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <a href="https://s53zo.github.io/ADIF-to-QSL-label/" style="margin-right: 10px;">
+        <img src="https://s53zo.github.io/ADIF-to-QSL-label/ADIFtoQSL.jpg" alt="Logo" style="height: 100px; vertical-align: middle; border-radius: 6px;">
+      </a>
+      <h1>QSL Labels</h1>
+      <span id="stats" class="stats">QSOs: 0 | Labels: 0 | Pages: 0</span>
+      <div class="spacer"></div>
+      <button id="downloadBtn" class="primary" disabled>Download PDF</button>
+    </header>
+
+    <div id="editorBar" class="editorbar" style="display:none">
+      <span class="small muted">Visual Layout Editor</span>
+      <span class="chip">Snap (mm):
+        <select id="snapMM" style="width:auto">
+          <option value="0">None</option>
+          <option value="0.5">0.5</option>
+          <option value="0.25" selected>0.25</option>
+          <option value="0.5">0.5</option>
+          <option value="1">1.0</option>
+        </select>
+      </span>
+      <span class="chip"><label><input id="showGuides" type="checkbox" checked> Guides</label></span>
+      <span class="chip"><label><input id="unlockCallX" type="checkbox"> Unlock Callsign X</label></span>
+      <div class="spacer"></div>
+      <button id="resetLayout">Reset</button>
+      <button id="applyLayout" class="primary">Apply</button>
+      <button id="closeEditor">Close</button>
+    </div>
+
+    <div id="banner" class="banner" style="display:none">
+      <span class="good">Sample data loaded.</span>
+      Upload your ADIF to use your own QSOs.
+      <button id="reloadSample" class="link" title="Reload the built-in sample">Reload sample</button>
+    </div>
+
+    <div class="preview-wrap">
+      <div id="previewControls" class="controls" style="margin-bottom:10px">
+        <button id="prevPage">⟨</button>
+        <span class="small" id="pageInfo">Page 1 / 1</span>
+        <button id="nextPage">⟩</button>
+        <div class="spacer"></div>
+        <label class="small muted">Zoom</label>
+        <input id="zoom" type="range" min="50" max="200" value="100" />
+      </div>
+      <canvas id="preview"></canvas>
+
+      <canvas id="layoutEditor" style="display:none; margin-top:12px"></canvas>
+
+      <p class="help">Preview and print is WYSIWYG. Use <b>Actual size / 100%</b> when printing the downloaded PDF.</p>
+    </div>
+  </main>
+</div>
+
+<div id="picker" class="overlay">
+  <div class="dialog">
+    <h4>Add column</h4>
+    <div class="row">
+      <div>
+        <label class="small muted">Header</label>
+        <input id="pickHeader" type="text" value="Header" />
+      </div>
+      <div>
+        <label class="small muted">Source (ADIF tag)</label>
+        <select id="pickSource"></select>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="pickCancel">Cancel</button>
+      <button id="pickOk" class="primary">Add</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<script>
+/***** IMPORTANT: JavaScript logic kept IDENTICAL to preserve functionality. *****/
+/* ===== Units & helpers ===== */
+const MM = 72 / 25.4; const A4 = { w:210, h:297 }; const LETTER = { w:215.9, h:279.4 };
+function mm2pt(mm){ return mm*MM; } function pt2mm(pt){ return pt/MM; }
+function clamp(n,lo,hi){ return Math.max(lo, Math.min(hi,n)); }
+function parseCSVfloats(s){ if(!s) return []; return s.split(",").map(x=>parseFloat(x.trim()||"0")); }
+function parseCSVstrings(s){ if(!s) return []; return s.split(",").map(x=>x.trim().toUpperCase()).filter(Boolean); }
+const THEMES={
+  maritime:{ label:"Maritime Midnight", colorScheme:"dark", vars:{ '--bg':'#0b1724','--panel':'#0f1f2f','--panel-2':'#11263a','--ink':'#f0f7ff','--muted':'#8ba9c8','--border':'#1e3a56','--accent':'#2bb4d4','--accent-2':'#fdd384' } },
+  dusk:{ label:"Desert Dusk", colorScheme:"light", vars:{ '--bg':'#f6eee6','--panel':'#fff8f1','--panel-2':'#f2dfd0','--ink':'#473327','--muted':'#8c6f5e','--border':'#ead1c0','--accent':'#167287','--accent-2':'#f9a66c' } },
+  paper:{ label:"Classic Paper", colorScheme:"light", vars:{ '--bg':'#fdfbf7','--panel':'#ffffff','--panel-2':'#f5f1eb','--ink':'#302620','--muted':'#7d6d62','--border':'#dcd2c6','--accent':'#22577a','--accent-2':'#38a3a5' } },
+  seaside:{ label:"Seaside Daylight", colorScheme:"light", vars:{ '--bg':'#e8f8fb','--panel':'#ffffff','--panel-2':'#dff0f6','--ink':'#083049','--muted':'#5f93ad','--border':'#b3d7e6','--accent':'#0c6ca6','--accent-2':'#f26157' } },
+};
+let currentThemeName = 'maritime';
+function applyTheme(name, persist=true){
+  const resolved = Object.prototype.hasOwnProperty.call(THEMES, name) ? name : (currentThemeName || 'paper');
+  const theme = THEMES[resolved] || THEMES.paper;
+  currentThemeName = resolved;
+  const root = document.documentElement;
+  Object.entries(theme.vars).forEach(([key,value])=>{
+    root.style.setProperty(key, value);
+  });
+  if(document.body){
+    document.body.style.backgroundColor = theme.vars['--bg'];
+    document.body.style.colorScheme = theme.colorScheme || 'light';
+    document.body.dataset.theme = currentThemeName;
+  }
+  if(persist){ try{ localStorage.setItem('qslTheme', currentThemeName); }catch(e){}
+  }
+  const select=document.getElementById('themeSelect');
+  if(select && select.value!==currentThemeName){ select.value=currentThemeName; }
+}
+function initTheme(){
+  let saved=null;
+  try{ saved=localStorage.getItem('qslTheme'); }catch(e){ saved=null; }
+  const initial = (saved && THEMES[saved]) ? saved : 'maritime';
+  applyTheme(initial, false);
+}
+function downloadBlob(name, blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+function setupHiDPICanvas(canvas, pageWpt, pageHpt, zoom){ const dpr=window.devicePixelRatio||1; const cssW=Math.round(pageWpt*zoom); const cssH=Math.round(pageHpt*zoom); canvas.style.width=cssW+"px"; canvas.style.height=cssH+"px"; canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr); const ctx=canvas.getContext('2d'); ctx.setTransform(canvas.width/pageWpt,0,0,canvas.height/pageHpt,0,0); return ctx; }
+
+/* ===== ADIF parsing & helpers ===== */
+const FIELD_TAG=/<([A-Za-z0-9_]+):(\d+)(?::[^>]+)?>/ig;
+function parseADIF(text){
+  if(!text) return [];
+  const parts=text.replace(/\r\n?/g,"\n").split(/<eoh>/i);
+  const body=parts.length>1?parts[1]:parts[0];
+  const records=body.split(/<eor>/ig);
+  const out=[];
+  for(const rec of records){
+    let m; let fields={};
+    while((m=FIELD_TAG.exec(rec))!==null){
+      const tag=m[1].toUpperCase(); const len=parseInt(m[2],10);
+      const start=m.index+m[0].length; const val=rec.substr(start,len);
+      fields[tag]=(val||"").trim();
+    }
+    if(Object.keys(fields).length) out.push(fields);
+  }
+  return out;
+}
+function fmtDate(s){
+  if(!s) return "";
+  s = s.trim();
+  if (s.length < 8 || !/^\d{8}/.test(s)) return s;
+
+  const format = document.getElementById('dateFormat')?.value || 'YYYY-MM-DD';
+  
+  const year = s.slice(0, 4);
+  const month = s.slice(4, 6);
+  const day = s.slice(6, 8);
+  
+  return format.replace('YYYY', year).replace('MM', month).replace('DD', day);
+}
+function fmtTime(s){ if(!s) return ""; s=s.trim(); return (s.length>=4&&/^\d{4}/.test(s))?`${s.slice(0,2)}:${s.slice(2,4)}`:s; }
+function deriveCallPrefix(call){
+  if(!call) return "";
+  const parts = String(call).toUpperCase().split('/')
+    .map(p=>p.trim())
+    .filter(Boolean);
+  let best = parts[0] || '';
+  for(const part of parts){
+    const hasDigit = /[0-9]/.test(part);
+    const bestHasDigit = /[0-9]/.test(best);
+    if(hasDigit && (!bestHasDigit || part.length > best.length)){
+      best = part;
+    }
+  }
+  const match = best.match(/^[A-Z0-9]+/);
+  return match ? match[0] : best;
+}
+function bandFromFreq(freq){
+  if(!freq) return "";
+  const f=parseFloat(freq);
+  if(isNaN(f)) return "";
+  const B=[
+    [0.1357,0.1378,"2200M"],
+    [0.472,0.479,"630M"],
+    [1.8,2.0,"160M"],
+    [3.5,4.0,"80M"],
+    [5.3,5.406,"60M"],
+    [7.0,7.3,"40M"],
+    [10.1,10.15,"30M"],
+    [14.0,14.35,"20M"],
+    [18.068,18.168,"17M"],
+    [21.0,21.45,"15M"],
+    [24.89,24.99,"12M"],
+    [28.0,29.7,"10M"],
+    [50,54,"6M"],
+    [70,71,"4M"],
+    [144,148,"2M"],
+    [219,225,"1.25M"],
+    [420,450,"70CM"],
+    [902,928,"33CM"],
+    [1240,1300,"23CM"],
+    [2300,2450,"13CM"],
+    [3300,3500,"9CM"],
+    [5650,5925,"6CM"],
+    [10000,10500,"3CM"]
+  ];
+  for(const [lo,hi,b] of B){ if(f>=lo && f<=hi) return b; }
+  return "";
+}
+function normMode(mode,submode){ mode=(mode||"").toUpperCase().trim(); submode=(submode||"").toUpperCase().trim(); if(submode) return submode; if(mode==="USB"||mode==="LSB") return "SSB"; return mode; }
+function qslValue(rec){ for(const k of ["QSL_RCVD","LOTW_QSL_RCVD","EQSL_QSL_RCVD"]){ if((rec[k]||"").toUpperCase()==="Y") return "TNX"; } return "PSE"; }
+
+/* ===== Rows & filters ===== */
+function buildRows(recs){
+  const rows=[];
+  for(const r of recs){
+    const call=(r.CALL||"").toUpperCase().trim(); if(!call) continue;
+    const date_raw=r.QSO_DATE||r.QSO_DATE_OFF||"";
+    const time_raw=r.TIME_ON||r.TIME_OFF||"";
+    let band=(r.BAND||"").toUpperCase().trim();
+    if(!band){ band = bandFromFreq(r.FREQ); }
+    const propMode = (r.PROP_MODE||"").toUpperCase();
+    const satName = (r.SAT_NAME||"").trim();
+    if((!band || band==="") && (propMode.includes("SAT") || satName)){
+      band = "SAT";
+    }
+    const dxccRaw = (r.DXCC||"").toString().trim();
+    const dxccParsed = dxccRaw ? parseInt(dxccRaw,10) : NaN;
+    const dxccNum = Number.isFinite(dxccParsed) ? dxccParsed : null;
+    const dxccCountry = (r.COUNTRY || r.APP_DXKEEPER_COUNTRY || "").toString().trim();
+    const callPrefix = deriveCallPrefix(call);
+    const dxccPrefix = (r.APP_DXKEEPER_DXCCPREFIX || r.PFX || callPrefix || "").toString().trim().toUpperCase();
+    rows.push({
+      CALL:call, _DATE_RAW:date_raw, _TIME_RAW:time_raw,
+      DATE:fmtDate(date_raw), TIME:fmtTime(time_raw),
+      BAND:band,
+      MODE:normMode(r.MODE,r.SUBMODE),
+      _DXCC_NUM:dxccNum,
+      _DXCC_NAME:dxccCountry,
+      _DXCC_PREFIX:dxccPrefix,
+      _CALL_PREFIX:callPrefix,
+      QSL:qslValue(r), ...r
+    });
+  }
+  return rows;
+}
+function parseYMD(s) {
+  if (!s) return null;
+
+  const format = document.getElementById('dateFormat')?.value || 'YYYY-MM-DD';
+  
+  const separatorMatch = format.match(/[^A-Z]/);
+  if (!separatorMatch) return null;
+  const separator = separatorMatch[0];
+
+  const formatParts = format.split(separator);
+  const dateParts = s.split(separator);
+  
+  if (formatParts.length !== 3 || dateParts.length !== 3) return null;
+
+  const yearIndex = formatParts.indexOf('YYYY');
+  const monthIndex = formatParts.indexOf('MM');
+  const dayIndex = formatParts.indexOf('DD');
+  
+  if (yearIndex === -1 || monthIndex === -1 || dayIndex === -1) return null;
+
+  const year = dateParts[yearIndex];
+  const month = dateParts[monthIndex];
+  const day = dateParts[dayIndex];
+  
+  if (year?.length !== 4 || month?.length !== 2 || day?.length !== 2) return null;
+  
+  return `${year}${month}${day}`;
+}
+function getQslFieldVal(rec, fieldSel){
+  const up=(x)=>String(x||"").toUpperCase();
+  if(fieldSel==="QSL_RCVD") return up(rec.QSL_RCVD);
+  if(fieldSel==="LOTW_QSL_RCVD") return up(rec.LOTW_QSL_RCVD);
+  if(fieldSel==="EQSL_QSL_RCVD") return up(rec.EQSL_QSL_RCVD);
+  const a=[up(rec.QSL_RCVD),up(rec.LOTW_QSL_RCVD),up(rec.EQSL_QSL_RCVD)];
+  return a.find(v=>v==="Y"||v==="N"||v==="I"||v==="R"||v==="V"||v==="E") || (a.find(v=>v)!=="") || "";
+}
+function rowPassesFilters(row, f){
+  const d=row._DATE_RAW||"";
+  if(f.from && (!d || d < f.from)) return false;
+  if(f.to && (!d || d > f.to)) return false;
+  if(f.bands && f.bands.size){ const b=(row.BAND||"").toUpperCase(); if(!f.bands.has(b)) return false; }
+  if(f.modes && f.modes.size){ const m=(row.MODE||"").toUpperCase(); if(!f.modes.has(m)) return false; }
+  if(f.dxcc && f.dxcc.size){
+    const dxccNumStr = (row._DXCC_NUM!=null && Number.isFinite(row._DXCC_NUM)) ? String(row._DXCC_NUM) : "";
+    const dxccName = (row._DXCC_NAME || row.COUNTRY || "").toString().toUpperCase();
+    const dxccPrefix = (row._DXCC_PREFIX || "").toString().toUpperCase();
+    const callPrefix = (row._CALL_PREFIX || "").toString().toUpperCase();
+    const callFull = (row.CALL || "").toString().toUpperCase();
+    const match = f.dxcc.has(dxccNumStr) || (dxccName && f.dxcc.has(dxccName)) || (dxccPrefix && f.dxcc.has(dxccPrefix)) || (callPrefix && f.dxcc.has(callPrefix)) || (callFull && f.dxcc.has(callFull));
+    if(!match) return false;
+  }
+  if(f.qslStatus && f.qslStatus!=="ALL"){
+    const val = getQslFieldVal(row, f.qslField);
+    if(f.qslStatus==="N"){ if(val!=="N") return false; }
+    else if(f.qslStatus==="Y"){ if(val!=="Y") return false; }
+    else if(f.qslStatus==="I"){ if(val!=="I") return false; }
+    else if(f.qslStatus==="NONE"){ if(val && val!=="N") return false; }
+  }
+  return true;
+}
+
+/* ===== Grouping & layout ===== */
+function groupLabels(rows, rowsPerLabel, sortMode){
+  const by=new Map();
+  const meta=new Map();
+  for(const r of rows){
+    if(!by.has(r.CALL)) by.set(r.CALL,[]);
+    by.get(r.CALL).push(r);
+    if(!meta.has(r.CALL)){
+      const dxcc = (typeof r._DXCC_NUM === 'number' && Number.isFinite(r._DXCC_NUM)) ? r._DXCC_NUM : Infinity;
+      const name = (r._DXCC_NAME || r.COUNTRY || r._DXCC_PREFIX || '').toString().toUpperCase();
+      const prefix = (r._DXCC_PREFIX || r._CALL_PREFIX || '').toString().toUpperCase();
+      const callPrefix = (r._CALL_PREFIX || '').toString().toUpperCase();
+      meta.set(r.CALL, { dxcc, name, prefix, callPrefix, call: r.CALL });
+    }else{
+      const info = meta.get(r.CALL);
+      const dxccCandidate = (typeof r._DXCC_NUM === 'number' && Number.isFinite(r._DXCC_NUM)) ? r._DXCC_NUM : Infinity;
+      if(info.dxcc === Infinity && dxccCandidate !== Infinity){ info.dxcc = dxccCandidate; }
+      if(!info.name){
+        const altName = (r._DXCC_NAME || r.COUNTRY || r._DXCC_PREFIX || '').toString().toUpperCase();
+        if(altName) info.name = altName;
+      }
+      if(!info.prefix && (r._DXCC_PREFIX || r._CALL_PREFIX)){ info.prefix = (r._DXCC_PREFIX || r._CALL_PREFIX || '').toString().toUpperCase(); }
+      if(!info.callPrefix && r._CALL_PREFIX){ info.callPrefix = r._CALL_PREFIX.toString().toUpperCase(); }
+    }
+  }
+  for(const arr of by.values()){
+    arr.sort((a,b)=>(a._DATE_RAW+a._TIME_RAW).localeCompare(b._DATE_RAW+b._TIME_RAW));
+  }
+  const keys=[...by.keys()];
+  const mode=(sortMode||'CALL').toUpperCase();
+  keys.sort((a,b)=>{
+    if(mode==='DXCC'){
+      const ma=meta.get(a)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:a};
+      const mb=meta.get(b)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:b};
+      if(ma.dxcc < mb.dxcc) return -1;
+      if(ma.dxcc > mb.dxcc) return 1;
+      const nameCompare=(ma.name||'').localeCompare(mb.name||'');
+      if(nameCompare!==0) return nameCompare;
+      const prefixCompare=(ma.prefix||'').localeCompare(mb.prefix||'');
+      if(prefixCompare!==0) return prefixCompare;
+      const callPrefCompare=(ma.callPrefix||'').localeCompare(mb.callPrefix||'');
+      if(callPrefCompare!==0) return callPrefCompare;
+    } else if(mode==='PREFIX'){
+      const ma=meta.get(a)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:a};
+      const mb=meta.get(b)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:b};
+      const prefixCompare=(ma.prefix||'').localeCompare(mb.prefix||'');
+      if(prefixCompare!==0) return prefixCompare;
+      const callPrefCompare=(ma.callPrefix||'').localeCompare(mb.callPrefix||'');
+      if(callPrefCompare!==0) return callPrefCompare;
+      const dxccCompare = (ma.dxcc||Infinity) - (mb.dxcc||Infinity);
+      if(dxccCompare!==0) return dxccCompare;
+      const nameCompare=(ma.name||'').localeCompare(mb.name||'');
+      if(nameCompare!==0) return nameCompare;
+    }
+    return a.localeCompare(b);
+  });
+  const labels=[];
+  for(const k of keys){
+    const arr=by.get(k);
+    for(let i=0;i<arr.length;i+=rowsPerLabel){
+      labels.push([k, arr.slice(i,i+rowsPerLabel)]);
+    }
+  }
+  return labels;
+}
+
+/* ===== Column sizing ===== */
+const metricsCanvas=document.createElement('canvas'); metricsCanvas.width=1000; metricsCanvas.height=200;
+const ctx2dForFonts=metricsCanvas.getContext('2d');
+function measureText(ctx, text, font){ ctx.save(); ctx.font=font; const w=ctx.measureText(text||"").width; ctx.restore(); return w; }
+function getCellText(row, source){ const key=(source||"").toUpperCase().trim(); if(!row) return ""; if(["DATE","TIME","BAND","MODE","QSL"].includes(key)) return row[key]||""; return row[key]||""; }
+function computeColWidths(ctx, cfg, qsoRows, labelWpt){
+  const cols=cfg.columns; const n=cols.length;
+  const padXpt = mm2pt(cfg.padXmm ?? 0);
+  const padTotal = padXpt * 2;
+  const widths=cols.map(col=>{
+    const headerW = measureText(ctx, col.header, `${cfg.sizeHeaders}px ${cfg.fontBold}`);
+    return headerW + padTotal;
+  });
+  for(const row of qsoRows||[]){
+    for(let i=0;i<n;i++){
+      const txt=getCellText(row, cols[i].source);
+      const cellW = measureText(ctx, txt, `${cfg.sizeRows}px ${cfg.fontMono}`) + padTotal;
+      widths[i]=Math.max(widths[i], cellW);
+    }
+  }
+  for(let i=0;i<n;i++) widths[i]+=cfg.colSlackPt;
+  const minPts=cfg.minColMM.map(mm=>mm2pt(mm));
+  for(let i=0;i<n;i++) widths[i]=Math.max(widths[i], minPts[i]||0);
+  const total=widths.reduce((a,b)=>a+b,0);
+  if(total<=0) return (cfg.staticColMM||[]).map(mm=>mm2pt(mm));
+  if(cfg.shrinkOnly){ if(total>labelWpt){ const s=labelWpt/total; for(let i=0;i<n;i++) widths[i]*=s; } }
+  else{ const s=labelWpt/total; for(let i=0;i<n;i++) widths[i]*=s; }
+  return widths;
+}
+
+/* ===== Config & layout ===== */
+let layoutState = null; // stores current layout (mm)
+const layoutStateByMode = new Map();
+let currentLayoutMode = 'labels';
+function defaultLayout(cfg){
+  const labelW_mm = (cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : (cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm)) / cfg.cols;
+  const labelH_mm = (cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : cfg.labelHmm;
+  const padX = cfg.padXmm, padY = cfg.padYmm;
+  const layout = {
+    toRadio: { x_mm: padX, y_mm: padY + pt2mm(8) },
+    callsign:{ y_mm: padY + pt2mm(8), centerX: true },
+    headers: { y_mm: padY + pt2mm(20) },
+    table:   { y_mm: padY + pt2mm(32), lineGapPt: cfg.lineGapPt },
+    footerL: { x_mm: padX, y_mm: labelH_mm - padY - pt2mm(2) - cfg.footerYShiftmm },
+    footerR: { x_mm: labelW_mm - padX - cfg.footerRShiftmm, y_mm: labelH_mm - padY - pt2mm(2) - cfg.footerYShiftmm }
+  };
+  layout._custom = false;
+  return layout;
+}
+function pageDims(name){ return (name==="LETTER")?LETTER:A4; }
+function readConfig(){
+  const modeSelBtn=document.querySelector('.mode-option.selected');
+  const mode = modeSelBtn ? modeSelBtn.dataset.mode : 'labels';
+  const colRows=[...document.querySelectorAll('.col-row')];
+  const columns=colRows.map(r=>({ header:r.querySelector('.col-h')?.value.trim()||"Col", source:r.querySelector('.col-s')?.value.trim()||"DATE" }));
+  function fitCsv(csv,len,fill=0){ const arr=parseCSVfloats(csv); if(arr.length<len) arr.push(...Array(len-arr.length).fill(fill)); if(arr.length>len) arr.length=len; return arr; }
+  const pm=document.getElementById('pageSize')?.value||'A4';
+  const cardWidth=parseFloat(document.getElementById('cardWidth')?.value||"150");
+  const cardHeight=parseFloat(document.getElementById('cardHeight')?.value||"100");
+  const cardLabelWidth=parseFloat(document.getElementById('cardLabelWidth')?.value||String(cardWidth));
+  const cardLabelHeight=parseFloat(document.getElementById('cardLabelHeight')?.value||String(cardHeight));
+  const cardLabelX=parseFloat(document.getElementById('cardLabelX')?.value||"0");
+  const cardLabelY=parseFloat(document.getElementById('cardLabelY')?.value||"0");
+  const cardLabelRotation=parseFloat(document.getElementById('cardLabelRotation')?.value||"0");
+  const rawSort=(document.getElementById('sortMode')?.value||'CALL');
+  const sortMode = rawSort === 'DXCC' ? 'PREFIX' : rawSort;
+  const dims=pageDims(pm);
+  const pageWmm = (mode==='qslCard') ? cardWidth : dims.w;
+  const pageHmm = (mode==='qslCard') ? cardHeight : dims.h;
+  const cfg={
+    mode,
+    sortMode,
+    pageSize: pm,
+    pageWmm,
+    pageHmm,
+    cols:+(document.getElementById('cols').value||3),
+    rows:+(document.getElementById('rows').value||8),
+    labelHmm:parseFloat(document.getElementById('labelH').value||"33.8"),
+    marginLmm:parseFloat(document.getElementById('marginL').value||"3"),
+    marginRmm:parseFloat(document.getElementById('marginR').value||"3"),
+    marginTmm:parseFloat(document.getElementById('marginT').value||"5"),
+    startRow: Math.max(1, parseInt(document.getElementById('startRow').value||"1",10)),
+    startCol: Math.max(1, parseInt(document.getElementById('startCol').value||"1",10)),
+    xOffmm:parseFloat(document.getElementById('xOffset').value||"0"),
+    yOffmm:parseFloat(document.getElementById('yOffset').value||"5"),
+    colOffsets:fitCsv(document.getElementById('colOffsets').value, +(document.getElementById('cols').value||3), 0),
+    rowOffsets:fitCsv(document.getElementById('rowOffsets').value, +(document.getElementById('rows').value||8), 0),
+    padXmm:parseFloat(document.getElementById('padX').value||"2"),
+    padYmm:parseFloat(document.getElementById('padY').value||"2"),
+    footerL:document.getElementById('footerL').value,
+    footerR:document.getElementById('footerR').value,
+    footerRShiftmm:parseFloat(document.getElementById('footerRShift').value||"5"),
+    footerYShiftmm:parseFloat(document.getElementById('footerYShift').value||"2"),
+    rowsPerLabel:+(document.getElementById('rowsPerLabel').value||4),
+    dynamicCols:document.getElementById('dynamicCols').value==="1",
+    shrinkOnly:document.getElementById('shrinkOnly').value==="1",
+    colSlackPt:parseFloat(document.getElementById('slackPt').value||"2"),
+    lineGapPt:parseFloat(document.getElementById('lineGap').value||"9"),
+    columns,
+    minColMM:fitCsv(document.getElementById('minColMM').value, columns.length, 8),
+    staticColMM:fitCsv(document.getElementById('staticColMM').value, columns.length, 12),
+    fontBody:document.getElementById('fontBody').value,
+    fontMono:document.getElementById('fontMono').value,
+    fontBold:document.getElementById('fontBold').value,
+    dateFormat: document.getElementById('dateFormat').value,
+    sizeToRadio:parseFloat(document.getElementById('sizeToRadio').value||"7.5"),
+    sizeCallsign:parseFloat(document.getElementById('sizeCallsign').value||"14"),
+    sizeHeaders:parseFloat(document.getElementById('sizeHeaders').value||"7.2"),
+    sizeRows:parseFloat(document.getElementById('sizeRows').value||"8.2"),
+    sizeFooter:parseFloat(document.getElementById('sizeFooter').value||"7.2"),
+    dbgOutline:document.getElementById('dbgOutline').value==="1",
+    cardWidthmm:cardWidth,
+    cardHeightmm:cardHeight,
+    cardLabelWidthmm:cardLabelWidth,
+    cardLabelHeightmm:cardLabelHeight,
+    cardLabelXmm:cardLabelX,
+    cardLabelYmm:cardLabelY,
+    cardLabelRotationDeg:cardLabelRotation,
+    f:{
+      from: parseYMD(document.getElementById('fDateFrom').value || ""),
+      to:   parseYMD(document.getElementById('fDateTo').value || ""),
+      bands: new Set(parseCSVstrings(document.getElementById('fBands').value)),
+      modes: new Set(parseCSVstrings(document.getElementById('fModes').value)),
+      dxcc:  new Set(parseCSVstrings(document.getElementById('fDxcc').value)),
+      qslField: document.getElementById('fQslField').value || "ANY",
+    qslStatus: document.getElementById('fQslStatus').value || "ALL",
+    }
+  };
+  cfg.themeName = currentThemeName || 'paper';
+  if(mode==='qslCard'){
+    cfg.cols = 1;
+    cfg.rows = 1;
+    cfg.labelHmm = cardLabelHeight;
+  }
+  const key = cfg.mode || 'labels';
+  if(layoutState){ layoutStateByMode.set(currentLayoutMode, layoutState); }
+  currentLayoutMode = key;
+  const stored = layoutStateByMode.get(key);
+  if(stored){
+    layoutState = stored;
+  }
+  if(!layoutState || !layoutState._custom){
+    layoutState = defaultLayout(cfg);
+  }
+  if(layoutState.table){ layoutState.table.lineGapPt = cfg.lineGapPt; }
+  cfg.layout = layoutState;
+  layoutStateByMode.set(key, layoutState);
+  document.getElementById('colOffsets').value = cfg.colOffsets.join(',');
+  document.getElementById('rowOffsets').value = cfg.rowOffsets.join(',');
+  document.getElementById('minColMM').value   = cfg.minColMM.join(',');
+  document.getElementById('staticColMM').value= cfg.staticColMM.join(',');
+  return cfg;
+}
+
+/* ===== Preview & PDF use layout ===== */
+const canvas=document.getElementById('preview');
+let recs=[], rows=[], labels=[]; let currentPage=0; let adifFields=[]; let usingSample=true;
+function computeStats(cfg, baseRows, filteredRows){
+  const per = cfg.cols * cfg.rows;
+  const pages = Math.max(1, Math.ceil(labels.length / per));
+  document.getElementById('pageInfo').textContent = `Page ${Math.min(currentPage+1,pages)} / ${pages}`;
+  document.getElementById('stats').textContent = `QSOs: ${filteredRows.length} | Labels: ${labels.filter(l=>l && l[1] && l[1].length).length} | Pages: ${pages}`;
+  document.getElementById('downloadBtn').disabled = (filteredRows.length===0);
+  const warn = document.getElementById('adifWarning');
+  const banner = document.getElementById('banner');
+  if(usingSample){ warn.textContent = "Sample data is shown. Upload your ADIF to replace it."; warn.style.display="block"; banner.style.display="block"; }
+  else{ warn.style.display="none"; banner.style.display="none"; }
+}
+function computeLabelX0Y0(cfg, col, rowI, labelWpt, labelHpt){
+  if(cfg.mode==='qslCard'){
+    return { x0: mm2pt(cfg.cardLabelXmm), y0: mm2pt(cfg.cardLabelYmm) };
+  }
+  const leftMarginPt=mm2pt(cfg.marginLmm);
+  const topMarginPt=mm2pt(cfg.marginTmm);
+  let x0=leftMarginPt + col*labelWpt;
+  let y0=topMarginPt + rowI*labelHpt;
+  x0 += mm2pt(cfg.xOffmm) + mm2pt(cfg.colOffsets[col]||0);
+  y0 += mm2pt(cfg.yOffmm) + mm2pt(cfg.rowOffsets[rowI]||0);
+  return {x0,y0};
+}
+function renderOnePage(cfg, pageIdx){
+  const ctx = setupHiDPICanvas(canvas, mm2pt(cfg.pageWmm), mm2pt(cfg.pageHmm), (parseInt(document.getElementById('zoom').value||"100",10)/100));
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,mm2pt(cfg.pageWmm),mm2pt(cfg.pageHmm));
+  ctx.fillStyle="#000"; ctx.textBaseline="alphabetic";
+  if(cfg.dbgOutline && cfg.mode==='qslCard'){
+    ctx.save();
+    ctx.strokeStyle="#94a3b8";
+    ctx.lineWidth=0.8;
+    ctx.strokeRect(0,0,mm2pt(cfg.pageWmm),mm2pt(cfg.pageHmm));
+    ctx.restore();
+  }
+  const usableWmm=cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm);
+  const labelWpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelWidthmm) : mm2pt(usableWmm / cfg.cols);
+  const labelHpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelHeightmm) : mm2pt(cfg.labelHmm);
+  const perPage=cfg.cols*cfg.rows; const start=pageIdx*perPage; const end=Math.min(labels.length, start+perPage);
+  const padXpt=mm2pt(cfg.padXmm), padYpt=mm2pt(cfg.padYmm);
+  for(let idx=start; idx<end; idx++){
+    const local=idx-start; const col=local % cfg.cols; const rowI=Math.floor(local / cfg.cols);
+    const item=labels[idx];
+    const isBlank = !item || !item[0] && (!item[1] || item[1].length===0);
+    const call = isBlank ? "" : item[0];
+    const chunk = isBlank ? [] : item[1];
+    const {x0,y0}=computeLabelX0Y0(cfg,col,rowI,labelWpt,labelHpt);
+    const rotation = (cfg.mode==='qslCard') ? (cfg.cardLabelRotationDeg||0) : 0;
+    const centerX = x0 + labelWpt/2;
+    const centerY = y0 + labelHpt/2;
+    ctx.save();
+    if(rotation){ ctx.translate(centerX, centerY); ctx.rotate(rotation*Math.PI/180); ctx.translate(-centerX, -centerY); }
+    if(cfg.dbgOutline){ ctx.strokeStyle="#bbb"; ctx.lineWidth=0.5; ctx.strokeRect(x0,y0,labelWpt,labelHpt); }
+    if(isBlank){ ctx.restore(); continue; }
+    let colW;
+    if(cfg.dynamicCols){
+      colW = computeColWidths(metricsCanvas.getContext('2d'), {
+        columns: cfg.columns, sizeHeaders: cfg.sizeHeaders, sizeRows: cfg.sizeRows,
+        fontBold: cfg.fontBold, fontMono: cfg.fontMono, minColMM: cfg.minColMM,
+        staticColMM: cfg.staticColMM, colSlackPt: cfg.colSlackPt, shrinkOnly: cfg.shrinkOnly,
+        padXmm: cfg.padXmm,
+      }, chunk, labelWpt);
+    }else{
+      const sum=cfg.staticColMM.reduce((a,b)=>a+b,0)||1;
+      const scale=labelWpt / mm2pt(sum);
+      colW=cfg.staticColMM.map(mm=>mm2pt(mm)*scale);
+    }
+    const L = cfg.layout; 
+    ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
+    ctx.fillText("To Radio", x0 + mm2pt(L.toRadio.x_mm), y0 + mm2pt(L.toRadio.y_mm));
+    ctx.font=`bold ${cfg.sizeCallsign}px ${cfg.fontBody}`;
+    ctx.textAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
+    const callXpt = (L.callsign.centerX && !document.getElementById('unlockCallX').checked)
+      ? (x0 + labelWpt/2) : (x0 + mm2pt(L.callsign.x_mm ?? cfg.padXmm));
+    ctx.fillText((call||"").toUpperCase(), callXpt, y0 + mm2pt(L.callsign.y_mm));
+    ctx.textAlign="left";
+    ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
+    let cx=x0; const headersY=y0 + mm2pt(L.headers.y_mm);
+    for(let i=0;i<cfg.columns.length;i++){ ctx.fillText(cfg.columns[i].header, cx+padXpt, headersY); cx+=colW[i]; }
+    const firstLineY=y0 + mm2pt(L.table.y_mm);
+    const lineGap=(L.table.lineGapPt ?? cfg.lineGapPt);
+    ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
+    for(let r=0;r<cfg.rowsPerLabel;r++){
+      const data=chunk[r]||null; let cx2=x0;
+      for(let i=0;i<cfg.columns.length;i++){
+        const maxW=Math.max(1, colW[i]-2*padXpt);
+        const txt=data ? getCellText(data, cfg.columns[i].source) : "";
+        shrinkAndDraw(ctx, txt, cx2+padXpt, firstLineY + r*lineGap, maxW, `${cfg.sizeRows}px ${cfg.fontMono}`);
+        cx2+=colW[i];
+      }
+    }
+    ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
+    ctx.textAlign="left";
+    ctx.fillText(cfg.footerL, x0 + mm2pt(L.footerL.x_mm), y0 + mm2pt(L.footerL.y_mm));
+    ctx.textAlign="right";
+    ctx.fillText(cfg.footerR, x0 + mm2pt(L.footerR.x_mm), y0 + mm2pt(L.footerR.y_mm));
+    ctx.textAlign="left";
+    ctx.restore();
+  }
+}
+function shrinkAndDraw(ctx, text, x, y, maxW, font, minSize=5, step=0.3){
+  let size=parseFloat(font.match(/(\d+(\.\d+)?)/)[0]); const family=font.replace(/^\s*\d+(\.\d+)?px\s*/,''); let w;
+  while(true){ ctx.font=`${size}px ${family}`; w=ctx.measureText(text||"").width; if(w<=maxW || size<=minSize) break; size=Math.max(minSize,size-step); }
+  ctx.fillText(text||"", x, y);
+}
+
+/* ===== Filters + Start-at offset ===== */
+function applyFilters(allRows, f){ return allRows.filter(r=>rowPassesFilters(r, f)); }
+function buildLabelsWithOffset(filteredRows, cfg){
+  const grouped = groupLabels(filteredRows, cfg.rowsPerLabel, cfg.sortMode);
+  if(cfg.mode==='qslCard'){ return grouped; }
+  const skipSlots = Math.max(0, (cfg.startRow-1)*cfg.cols + (cfg.startCol-1));
+  if(skipSlots===0) return grouped;
+  const blanks = Array.from({length: skipSlots}, ()=> null);
+  return blanks.concat(grouped);
+}
+
+/* ===== Recompute & PDF ===== */
+function recompute(){
+  const cfg=readConfig();
+  const filtered = applyFilters(rows, cfg.f);
+  labels = buildLabelsWithOffset(filtered, cfg);
+  const per=cfg.cols*cfg.rows; const pages=Math.max(1, Math.ceil(labels.length/per));
+  currentPage = clamp(currentPage, 0, pages-1);
+  computeStats(cfg, rows, filtered);
+  if(!editorMode){ renderOnePage(cfg, currentPage); }
+}
+async function downloadPDF(){
+  const cfg=readConfig(); const filtered = applyFilters(rows, cfg.f);
+  const pdfLabels = buildLabelsWithOffset(filtered, cfg);
+  if(filtered.length===0){ alert("No QSOs match the current filters."); return; }
+  const { jsPDF } = window.jspdf;
+  const orientation = (cfg.pageWmm >= cfg.pageHmm) ? 'landscape' : 'portrait';
+  const doc=new jsPDF({ orientation, unit:"mm", format:[cfg.pageWmm,cfg.pageHmm], compress:true });
+  const usableWmmPdf = cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm);
+  const labelWpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelWidthmm) : mm2pt(usableWmmPdf / cfg.cols);
+  const labelHpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelHeightmm) : mm2pt(cfg.labelHmm);
+  const per=cfg.cols*cfg.rows; const pages=Math.max(1, Math.ceil(pdfLabels.length/per));
+  function pdfText(text,x_mm,y_mm,align="left",font="helvetica",style="normal",size=10,rotation=0){
+    doc.setFont(font,style); doc.setFontSize(size);
+    const opts={ align };
+    if(rotation){ opts.angle = rotation; }
+    doc.text(String(text??""), x_mm, y_mm, opts);
+  }
+  function shrinkAndText(text,x_mm,y_mm,maxW_mm,font="courier",style="normal",startSize=8.2,minSize=5.0,step=0.3,rotation=0){
+    let sz=startSize; doc.setFont(font,style); doc.setFontSize(sz);
+    while(doc.getTextWidth(String(text??""))>maxW_mm && sz>minSize){ sz=Math.max(minSize,sz-step); doc.setFontSize(sz); }
+    if(rotation){ doc.text(String(text??""), x_mm, y_mm, { angle: rotation }); }
+    else{ doc.text(String(text??""), x_mm, y_mm); }
+  }
+  function drawRotatedRect(docInst, toPage, width_mm, height_mm){
+    const corners=[
+      toPage(0,0),
+      toPage(width_mm,0),
+      toPage(width_mm,height_mm),
+      toPage(0,height_mm)
+    ];
+    for(let i=0;i<4;i++){
+      const a=corners[i]; const b=corners[(i+1)%4];
+      docInst.line(a.x, a.y, b.x, b.y);
+    }
+  }
+  for(let p=0;p<pages;p++){
+    if(p>0) doc.addPage([cfg.pageWmm,cfg.pageHmm],orientation);
+    if(cfg.dbgOutline && cfg.mode==='qslCard'){
+      doc.setDrawColor(148); doc.setLineWidth(0.1);
+      doc.rect(0,0,cfg.pageWmm,cfg.pageHmm);
+      doc.setDrawColor(0);
+    }
+    const start=p*per, end=Math.min(pdfLabels.length, start+per);
+    for(let idx=start; idx<end; idx++){
+      const local=idx-start; const col=local%cfg.cols; const rowI=Math.floor(local/cols);
+      const item=pdfLabels[idx];
+      const isBlank = !item || !item[0] && (!item[1] || item[1].length===0);
+      const {x0,y0} = computeLabelX0Y0(cfg,col,rowI,labelWpt,labelHpt);
+      const labelW_mm=(cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : pt2mm(labelWpt);
+      const labelH_mm=(cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : pt2mm(labelHpt);
+      const x0_mm=pt2mm(x0);
+      const y0_mm=pt2mm(y0);
+      const rotation = (cfg.mode==='qslCard') ? (cfg.cardLabelRotationDeg||0) : 0;
+      const rad=rotation*Math.PI/180;
+      const sinR=Math.sin(rad);
+      const cosR=Math.cos(rad);
+      const cx = x0_mm + labelW_mm/2;
+      const cy = y0_mm + labelH_mm/2;
+      const toPage = (lx_mm, ly_mm)=>{
+        const absX = x0_mm + lx_mm;
+        const absY = y0_mm + ly_mm;
+        if(!rotation){ return { x: absX, y: absY }; }
+        const dx = absX - cx;
+        const dy = absY - cy;
+        return { x: cx + dx*cosR - dy*sinR, y: cy + dx*sinR + dy*cosR };
+      };
+      const padX_mm=cfg.padXmm;
+      if(cfg.dbgOutline){
+        doc.setDrawColor(187); doc.setLineWidth(0.1);
+        if(rotation){ drawRotatedRect(doc, toPage, labelW_mm, labelH_mm); }
+        else{ doc.rect(x0_mm, y0_mm, labelW_mm, labelH_mm); }
+        doc.setDrawColor(0);
+      }
+      if(isBlank) continue;
+      const [call, chunk]=item;
+      let colWpt;
+      if(cfg.dynamicCols){
+        colWpt = computeColWidths(metricsCanvas.getContext('2d'), {
+          columns: cfg.columns, sizeHeaders: cfg.sizeHeaders, sizeRows: cfg.sizeRows,
+          fontBold: cfg.fontBold, fontMono: cfg.fontMono, minColMM: cfg.minColMM,
+          staticColMM: cfg.staticColMM, colSlackPt: cfg.colSlackPt, shrinkOnly: cfg.shrinkOnly,
+          padXmm: cfg.padXmm,
+        }, chunk, labelWpt);
+      }else{
+        const sum=cfg.staticColMM.reduce((a,b)=>a+b,0)||1; const scale=labelWpt/mm2pt(sum);
+        colWpt=cfg.staticColMM.map(mm=>mm2pt(mm)*scale);
+      }
+      const L = cfg.layout;
+      const toRadioPos = toPage(L.toRadio.x_mm, L.toRadio.y_mm);
+      pdfText("To Radio", toRadioPos.x, toRadioPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
+      const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
+      const callLocalX = (callAlign==="center") ? (labelW_mm/2) : (L.callsign.x_mm ?? padX_mm);
+      const callPos = toPage(callLocalX, L.callsign.y_mm);
+      pdfText(String(call||"").toUpperCase(), callPos.x, callPos.y, callAlign, "helvetica", "bold", cfg.sizeCallsign, rotation);
+      let colAccumPt = 0;
+      for(let i=0;i<cfg.columns.length;i++){
+        const headerLocalX = pt2mm(colAccumPt) + padX_mm;
+        const headerPos = toPage(headerLocalX, L.headers.y_mm);
+        pdfText(cfg.columns[i].header, headerPos.x, headerPos.y, "left", "helvetica", "bold", cfg.sizeHeaders, rotation);
+        colAccumPt += colWpt[i];
+      }
+      const lineGapPt = (L.table.lineGapPt ?? cfg.lineGapPt);
+      for(let r=0;r<cfg.rowsPerLabel;r++){
+        const data=chunk[r]||null; let colAccumPt2=0;
+        for(let i=0;i<cfg.columns.length;i++){
+          const txt = data ? getCellText(data, cfg.columns[i].source) : "";
+          const localX = pt2mm(colAccumPt2) + padX_mm;
+          const localY = L.table.y_mm + pt2mm(lineGapPt * r);
+          const pos = toPage(localX, localY);
+          const maxW_mm = Math.max(0.1, pt2mm(colWpt[i]) - 2*padX_mm);
+          shrinkAndText(txt, pos.x, pos.y, maxW_mm, "courier", "normal", cfg.sizeRows, 5.0, 0.3, rotation);
+          colAccumPt2 += colWpt[i];
+        }
+      }
+      const footerLPos = toPage(L.footerL.x_mm, L.footerL.y_mm);
+      pdfText(cfg.footerL, footerLPos.x, footerLPos.y, "left", "helvetica", "normal", cfg.sizeFooter, rotation);
+      const footerRPos = toPage(L.footerR.x_mm, L.footerR.y_mm);
+      pdfText(cfg.footerR, footerRPos.x, footerRPos.y, "right", "helvetica", "normal", cfg.sizeFooter, rotation);
+    }
+  }
+  const baseName = cfg.mode==='qslCard' ? 'qsl_card' : 'qsl_labels';
+  const suffix = cfg.sortMode==='PREFIX' ? '_by_prefix' : '';
+  const fileName = `${baseName}${suffix||''}.pdf`;
+  doc.save(fileName);
+}
+
+/* ===== Column UI & picker ===== */
+function addColumnRow(header, source){
+  const wrap=document.getElementById('columns');
+  const row=document.createElement('div'); row.className='col-row';
+  row.innerHTML=`<input class="col-h" type="text" placeholder="Header" value="${header||''}">
+                 <select class="col-s"></select>
+                 <button class="remove">✕</button>`;
+  const sel=row.querySelector('.col-s');
+  const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
+  [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
+  if(source){ sel.value=String(source).toUpperCase(); }
+  row.querySelector('.remove').onclick=()=>{ row.remove(); recompute(); };
+  wrap.appendChild(row);
+}
+function resetDefaultColumns(){ const wrap=document.getElementById('columns'); wrap.innerHTML=""; [["Date","DATE"],["Time","TIME"],["Band","BAND"],["Mode","MODE"],["QSL","QSL"]].forEach(([h,s])=>addColumnRow(h,s)); }
+function syncColArraysToDefaults(){ document.getElementById('minColMM').value="12,10,10,10,6"; document.getElementById('staticColMM').value="20,12,12,18,8"; }
+function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+/* ===== Sample data ===== */
+function generateSampleRows(nLabels=10, maxRowsPerLabel=4){
+  const calls=["9A3ST","K1ABC","G4XYZ","DL1AAA","EA7ZZ","I2QSL","F5HAM","OH2FIN","JA1DX","VK2CQ","ZS6RAD","LU5HAM"];
+  const modes=["CW","SSB","FT8","FT4","RTTY"]; const bands=["20M","40M","30M","15M","10M","17M","12M","6M"];
+  const today=new Date(); const pad=n=>String(n).padStart(2,"0"); const rows=[];
+  for(let i=0;i<nLabels;i++){
+    const call=calls[i%calls.length]; const rCount=Math.max(1, Math.floor(Math.random()*maxRowsPerLabel)+1);
+    for(let r=0;r<rCount;r++){
+      const d=new Date(today.getTime() - (i*3+r)*86400000);
+      const date=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+      const time=`${pad(12+((i+r)%10))}${pad((i*7+r*13)%60)}`;
+      rows.push({ CALL:call, _DATE_RAW:date, _TIME_RAW:time, DATE:fmtDate(date), TIME:fmtTime(time),
+                  BAND:bands[(i+r)%bands.length], MODE:modes[(i+r)%modes.length], QSL:(r%2===0?"TNX":"PSE") });
+    }
+  }
+  return rows;
+}
+function loadSample(){
+  const maxRows=+(document.getElementById('rowsPerLabel').value)||4;
+  recs = generateSampleRows(10, maxRows); // Store raw data in recs
+  rows = buildRows(recs); // Process it into rows
+  const tags=new Set(); rows.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
+  adifFields=Array.from(tags).sort();
+  usingSample=true;
+  document.querySelectorAll('.col-row .col-s').forEach(sel=>{
+    const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
+    [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
+    if(keep) sel.value=keep;
+  });
+  currentPage=0; recompute();
+}
+
+/* ===== Layout editor ===== */
+let editorMode = false;
+const layoutCanvas = document.getElementById('layoutEditor');
+let dragging = null; 
+const handleSizePt = 20; 
+function toggleEditor(on){
+  editorMode = on;
+  document.getElementById('editorBar').style.display = on ? "flex" : "none";
+  layoutCanvas.style.display = on ? "block" : "none";
+  document.getElementById('preview').style.display = on ? "none" : "block";
+  document.getElementById('previewControls').style.display = on ? "none" : "flex";
+  if(on){ renderEditor(); } else { recompute(); }
+}
+function currentLabelDims(cfg){
+  const labelW_mm=(cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : (cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm))/cfg.cols;
+  const labelH_mm=(cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : cfg.labelHmm;
+  return {labelW_mm,labelH_mm};
+}
+function renderEditor(){
+  const cfg=readConfig();
+  const {labelW_mm,labelH_mm}=currentLabelDims(cfg);
+  const zoom=2;
+  const ctx = setupHiDPICanvas(layoutCanvas, mm2pt(labelW_mm), mm2pt(labelH_mm), zoom);
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,mm2pt(labelW_mm),mm2pt(labelH_mm));
+  ctx.strokeStyle="#bbb"; ctx.lineWidth=0.5; ctx.strokeRect(0,0,mm2pt(labelW_mm),mm2pt(labelH_mm));
+  ctx.setLineDash([3,3]); ctx.strokeStyle="#d1d5db";
+  ctx.strokeRect(mm2pt(cfg.padXmm), mm2pt(cfg.padYmm), mm2pt(labelW_mm-2*cfg.padXmm), mm2pt(labelH_mm-2*cfg.padYmm));
+  ctx.setLineDash([]);
+  const L=cfg.layout;
+  ctx.fillStyle="#000";
+  ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
+  ctx.fillText("To Radio", mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm));
+  ctx.font=`bold ${cfg.sizeCallsign}px ${cfg.fontBody}`;
+  const callXpt = (L.callsign.centerX && !document.getElementById('unlockCallX').checked)
+    ? (mm2pt(labelW_mm)/2) : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
+  ctx.textAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
+  ctx.fillText("SAMPLECALL", callXpt, mm2pt(L.callsign.y_mm));
+  ctx.textAlign="left";
+  ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
+  ctx.fillText("Date   Time   Band   Mode   QSL", mm2pt(cfg.padXmm), mm2pt(L.headers.y_mm));
+  ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
+  ctx.fillText("2025-09-09  12:34  20M   CW   TNX", mm2pt(cfg.padXmm), mm2pt(L.table.y_mm));
+  ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
+  ctx.fillText(cfg.footerL || "Left footer", mm2pt(L.footerL.x_mm), mm2pt(L.footerL.y_mm));
+  ctx.textAlign="right";
+  ctx.fillText(cfg.footerR || "TNX & 73", mm2pt(L.footerR.x_mm), mm2pt(L.footerR.y_mm));
+  ctx.textAlign="left";
+  drawHandle(ctx, mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm), "toRadio");
+  drawHandle(ctx, callXpt,              mm2pt(L.callsign.y_mm), "callsign", (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "y" : "xy");
+  drawHandle(ctx, mm2pt(cfg.padXmm),    mm2pt(L.headers.y_mm), "headers", "y");
+  drawHandle(ctx, mm2pt(cfg.padXmm),    mm2pt(L.table.y_mm),   "table",   "y");
+  drawHandle(ctx, mm2pt(L.footerL.x_mm),mm2pt(L.footerL.y_mm), "footerL");
+  drawHandle(ctx, mm2pt(L.footerR.x_mm),mm2pt(L.footerR.y_mm), "footerR");
+  if(document.getElementById('showGuides').checked){
+    ctx.fillStyle="#111827aa"; ctx.fillRect(6,6,160,64);
+    ctx.fillStyle="#e5e7eb"; ctx.font="11px Arial";
+    ctx.fillText("Drag the squares to move elements", 12, 22);
+    ctx.fillText("Snap: hold Alt to disable", 12, 38);
+    ctx.fillText("Callsign X locked unless unlocked", 12, 54);
+  }
+}
+function drawHandle(ctx, xpt, ypt, key, lock="xy"){
+  ctx.save();
+  ctx.fillStyle="#38bdf8aa"; ctx.strokeStyle="#0284c7"; ctx.lineWidth=1;
+  const hs=handleSizePt/2;
+  ctx.fillRect(xpt-hs, ypt-hs, handleSizePt, handleSizePt);
+  ctx.strokeRect(xpt-hs, ypt-hs, handleSizePt, handleSizePt);
+  ctx.restore();
+}
+function hitTestHandle(cfg, xpt, ypt){
+  const {labelW_mm} = currentLabelDims(cfg);
+  const L=cfg.layout;
+  const hs=handleSizePt/2;
+  const callXpt = (L.callsign.centerX && !document.getElementById('unlockCallX').checked)
+    ? (mm2pt(labelW_mm)/2) : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
+  const handles = [
+    {key:"toRadio", x:mm2pt(L.toRadio.x_mm), y:mm2pt(L.toRadio.y_mm), lock:"xy"},
+    {key:"callsign",x:callXpt, y:mm2pt(L.callsign.y_mm), lock: (L.callsign.centerX && !document.getElementById('unlockCallX').checked)?"y":"xy"},
+    {key:"headers", x:mm2pt(cfg.padXmm), y:mm2pt(L.headers.y_mm), lock:"y"},
+    {key:"table",   x:mm2pt(cfg.padXmm), y:mm2pt(L.table.y_mm), lock:"y"},
+    {key:"footerL", x:mm2pt(L.footerL.x_mm), y:mm2pt(L.footerL.y_mm), lock:"xy"},
+    {key:"footerR", x:mm2pt(L.footerR.x_mm), y:mm2pt(L.footerR.y_mm), lock:"xy"},
+  ];
+  for(const h of handles){
+    if(xpt>=h.x-hs && xpt<=h.x+hs && ypt>=h.y-hs && ypt<=h.y+hs) return h;
+  }
+  return null;
+}
+layoutCanvas.addEventListener('pointerdown', (e)=>{
+  if(!editorMode) return;
+  const cfg=readConfig();
+  const dpr=layoutCanvas.width / layoutCanvas.style.width.replace("px",""); 
+  const x = e.offsetX / dpr, y = e.offsetY / dpr;
+  const hit = hitTestHandle(cfg, x, y);
+  if(hit){
+    dragging = { key:hit.key, lock:hit.lock, dx:x-hit.x, dy:y-hit.y };
+    layoutCanvas.setPointerCapture(e.pointerId);
+  }
+});
+layoutCanvas.addEventListener('pointermove', (e)=>{
+  if(!editorMode || !dragging) return;
+  const cfg=readConfig();
+  const dpr=layoutCanvas.width / layoutCanvas.style.width.replace("px",""); 
+  const x = e.offsetX / dpr, y = e.offsetY / dpr;
+  const {labelW_mm,labelH_mm}=currentLabelDims(cfg);
+  const L=cfg.layout;
+  let nx = x - dragging.dx, ny = y - dragging.dy; 
+  let x_mm = pt2mm(nx), y_mm = pt2mm(ny);
+  const snap = parseFloat(document.getElementById('snapMM').value || "0.25");
+  if(!e.altKey && snap>0){ x_mm = Math.round(x_mm/snap)*snap; y_mm = Math.round(y_mm/snap)*snap; }
+  const xMin = cfg.padXmm, xMax = labelW_mm - cfg.padXmm;
+  const yMin = cfg.padYmm, yMax = labelH_mm - cfg.padYmm;
+  if(dragging.key==="toRadio"){
+    if(dragging.lock!=="y") L.toRadio.x_mm = clamp(x_mm, xMin, xMax);
+    if(dragging.lock!=="x") L.toRadio.y_mm = clamp(y_mm, yMin, yMax);
+  }else if(dragging.key==="callsign"){
+    if((L.callsign.centerX && !document.getElementById('unlockCallX').checked)){
+      L.callsign.y_mm = clamp(y_mm, yMin, yMax);
+    }else{
+      L.callsign.x_mm = clamp(x_mm, xMin, xMax);
+      L.callsign.y_mm = clamp(y_mm, yMin, yMax);
+    }
+  }else if(dragging.key==="headers"){
+    L.headers.y_mm = clamp(y_mm, yMin, yMax);
+  }else if(dragging.key==="table"){
+    L.table.y_mm = clamp(y_mm, yMin, yMax);
+  }else if(dragging.key==="footerL"){
+    L.footerL.x_mm = clamp(x_mm, xMin, xMax);
+    L.footerL.y_mm = clamp(y_mm, yMin, yMax);
+  }else if(dragging.key==="footerR"){
+    L.footerR.x_mm = clamp(x_mm, xMin, xMax);
+    L.footerR.y_mm = clamp(y_mm, yMin, yMax);
+  }
+  L._custom = true;
+  layoutState = L; 
+  layoutStateByMode.set(cfg.mode || currentLayoutMode, layoutState);
+  renderEditor();
+});
+layoutCanvas.addEventListener('pointerup', (e)=>{ dragging=null; layoutCanvas.releasePointerCapture?.(e.pointerId); });
+layoutCanvas.addEventListener('pointercancel', ()=>{ dragging=null; });
+
+/* ===== UI wiring & boot ===== */
+function applyConfigToUI(cfg){
+  const map={ pageSize:'pageSize', cols:'cols', rows:'rows', labelHmm:'labelH', marginLmm:'marginL', marginRmm:'marginR', marginTmm:'marginT',
+    xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', footerL:'footerL', footerR:'footerR',
+    footerRShiftmm:'footerRShift', footerYShiftmm:'footerYShift', rowsPerLabel:'rowsPerLabel', colSlackPt:'slackPt',
+    lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
+    startRow:'startRow', startCol:'startCol', sortMode:'sortMode'
+  };
+  if(cfg.sortMode==='DXCC') cfg.sortMode='PREFIX';
+  for(const k in map){ if(cfg[k]!==undefined) document.getElementById(map[k]).value=cfg[k]; }
+  if(cfg.fontBody) document.getElementById('fontBody').value=cfg.fontBody;
+  if(cfg.fontMono) document.getElementById('fontMono').value=cfg.fontMono;
+  if(cfg.fontBold) document.getElementById('fontBold').value=cfg.fontBold;
+  if(cfg.dateFormat) document.getElementById('dateFormat').value=cfg.dateFormat;
+  if(cfg.colOffsets) document.getElementById('colOffsets').value = cfg.colOffsets.join(",");
+  if(cfg.rowOffsets) document.getElementById('rowOffsets').value = cfg.rowOffsets.join(",");
+  if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
+  if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
+  if(cfg.f && cfg.f.dxcc) document.getElementById('fDxcc').value = Array.from(cfg.f.dxcc).join(',');
+  if(cfg.themeName){ applyTheme(cfg.themeName, false); }
+  else if(currentThemeName){ applyTheme(currentThemeName, false); }
+  document.querySelectorAll('.mode-option').forEach(btn=>{
+    btn.classList.toggle('selected', btn.dataset.mode === (cfg.mode==='qslCard'?'qslCard':'labels'));
+  });
+  if(cfg.cardWidthmm!==undefined) document.getElementById('cardWidth').value = cfg.cardWidthmm;
+  if(cfg.cardHeightmm!==undefined) document.getElementById('cardHeight').value = cfg.cardHeightmm;
+  if(cfg.cardLabelWidthmm!==undefined) document.getElementById('cardLabelWidth').value = cfg.cardLabelWidthmm;
+  if(cfg.cardLabelHeightmm!==undefined) document.getElementById('cardLabelHeight').value = cfg.cardLabelHeightmm;
+  if(cfg.cardLabelXmm!==undefined) document.getElementById('cardLabelX').value = cfg.cardLabelXmm;
+  if(cfg.cardLabelYmm!==undefined) document.getElementById('cardLabelY').value = cfg.cardLabelYmm;
+  if(cfg.cardLabelRotationDeg!==undefined) document.getElementById('cardLabelRotation').value = cfg.cardLabelRotationDeg;
+  updateModeVisibility();
+}
+function initCollapsibles(){
+  document.querySelectorAll('.collapsible').forEach(section=>{
+    const toggle=section.querySelector('.section-toggle');
+    const body=section.querySelector('.section-body');
+    if(!toggle || !body) return;
+    if(section.dataset.collapsibleBound) return;
+    let collapsed = section.dataset.initial === 'collapsed' || body.classList.contains('collapsed');
+    section.classList.toggle('is-collapsed', collapsed);
+    body.classList.toggle('collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    toggle.addEventListener('click', ()=>{
+      const isCollapsed = section.classList.toggle('is-collapsed');
+      toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      body.classList.toggle('collapsed', isCollapsed);
+    });
+    section.dataset.collapsibleBound = '1';
+  });
+}
+function updateModeVisibility(){
+  const modeSelBtn=document.querySelector('.mode-option.selected');
+  const mode = modeSelBtn ? modeSelBtn.dataset.mode : 'labels';
+  document.body.classList.toggle('card-mode', mode==='qslCard');
+  const pageSizeEl=document.getElementById('pageSize');
+  if(pageSizeEl){ pageSizeEl.disabled = (mode==='qslCard'); }
+}
+function autoResizeOffsetCSVs(){
+  const cols=+(document.getElementById('cols').value||3);
+  const rowsCount=+(document.getElementById('rows').value||8);
+  function fitCsv(id,len){ const arr=parseCSVfloats(document.getElementById(id).value); if(arr.length<len) arr.push(...Array(len-arr.length).fill(0)); if(arr.length>len) arr.length=len; document.getElementById(id).value = arr.join(','); }
+  fitCsv('colOffsets', cols); fitCsv('rowOffsets', rowsCount);
+}
+function bindInputs(){
+  document.querySelectorAll('input,select,button').forEach(el=>{
+    if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat"].includes(el.id)) return;
+    if(el.id==='themeSelect') return;
+    if(el.classList.contains('section-toggle') || el.classList.contains('mode-option')) return;
+    el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
+    el.addEventListener('change', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
+  });
+  const themeSelect=document.getElementById('themeSelect');
+  if(themeSelect){ themeSelect.addEventListener('change', ()=>{ applyTheme(themeSelect.value); }); }
+  document.querySelectorAll('.mode-option').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.mode-option').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      updateModeVisibility();
+      recompute();
+    });
+  });
+  document.getElementById('dateFormat').addEventListener('change', () => {
+    rows = buildRows(recs);
+    recompute();
+  });
+  document.getElementById('zoom').addEventListener('input', recompute);
+  document.getElementById('addCol').onclick=()=> openPicker();
+  document.getElementById('resetCols').onclick=()=>{ resetDefaultColumns(); syncColArraysToDefaults(); recompute(); };
+  document.getElementById('pickCancel').onclick=()=> closePicker();
+  document.getElementById('pickOk').onclick=()=>{ const h=document.getElementById('pickHeader').value||"Header"; const s=document.getElementById('pickSource').value||"DATE"; addColumnRow(h,s); closePicker(); recompute(); };
+  document.getElementById('prevPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.max(0,currentPage-1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
+  document.getElementById('nextPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.min(pages-1,currentPage+1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
+  document.getElementById('adifFile').addEventListener('change', async (e)=>{
+    const f=e.target.files?.[0]; if(!f) return; const txt=await f.text();
+    const recsRaw=parseADIF(txt); recs=recsRaw; rows=buildRows(recs);
+    const tags=new Set(); recs.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
+    adifFields=Array.from(tags).sort();
+    usingSample=false; currentPage=0;
+    document.querySelectorAll('.col-row .col-s').forEach(sel=>{
+      const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
+      [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
+      if(keep) sel.value=keep;
+    });
+    recompute();
+    try {
+      const uniqueCalls = new Set((rows||[]).map(r=>r.CALL)).size;
+      gtag('event', 'adif_upload', {
+        file_name: f.name,
+        file_ext: (f.name.split('.').pop()||'').toLowerCase(),
+        file_size_bytes: f.size || 0,
+        qso_rows: rows?.length || 0,
+        unique_calls: uniqueCalls,
+        sample_data_used: usingSample ? 'yes' : 'no'
+      });
+    } catch(e){ /* no-op */ }
+  });
+  document.getElementById('downloadBtn').onclick=downloadPDF;
+  document.getElementById('saveCfg').onclick=()=>{ const cfg=readConfig(); downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'})); };
+  document.getElementById('loadCfg').addEventListener('change', async e=>{
+    const f=e.target.files?.[0]; if(!f) return; const txt=await f.text();
+    try{
+      const obj=JSON.parse(txt);
+      if(layoutState){ layoutStateByMode.set(currentLayoutMode, layoutState); }
+      applyConfigToUI(obj);
+      if(obj.layout){
+        layoutState = obj.layout;
+        layoutState._custom = obj.layout._custom ?? true;
+        const targetMode = (obj.mode && obj.mode.toLowerCase()==='qslcard') ? 'qslCard' : (obj.mode || currentLayoutMode);
+        currentLayoutMode = targetMode;
+        layoutStateByMode.set(currentLayoutMode, layoutState);
+      }
+      autoResizeOffsetCSVs();
+      rows = buildRows(recs); // Re-process data after loading config with new date format
+      recompute();
+    }catch{
+      alert("Invalid config JSON");
+    }
+  });
+  document.getElementById('reloadSample').onclick=()=> loadSample();
+  const editBtn=document.getElementById('editLayoutBtn');
+  if(editBtn) editBtn.onclick=()=> toggleEditor(true);
+  document.getElementById('resetLayout').onclick=()=>{ const cfg=readConfig(); layoutState = defaultLayout(cfg); layoutState._custom = false; layoutStateByMode.set(cfg.mode||currentLayoutMode, layoutState); renderEditor(); };
+  document.getElementById('applyLayout').onclick=()=>{ toggleEditor(false); };
+  document.getElementById('closeEditor').onclick=()=> toggleEditor(false);
+  updateModeVisibility();
+}
+
+/* ===== Column picker overlay ===== */
+const picker=document.getElementById('picker');
+function openPicker(){
+  const select=document.getElementById('pickSource'); select.innerHTML="";
+  const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
+  [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; select.appendChild(opt); });
+  document.getElementById('pickHeader').value="Header"; picker.style.display="flex";
+}
+function closePicker(){ picker.style.display="none"; }
+
+/* ===== Boot ===== */
+resetDefaultColumns();
+syncColArraysToDefaults();
+initTheme();
+initCollapsibles();
+bindInputs();
+loadSample();
+</script>
+</body>
+</html>
