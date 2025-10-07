@@ -668,7 +668,14 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
 const MM = 72 / 25.4; const A4 = { w:210, h:297 }; const LETTER = { w:215.9, h:279.4 };
 function mm2pt(mm){ return mm*MM; } function pt2mm(pt){ return pt/MM; }
 function clamp(n,lo,hi){ return Math.max(lo, Math.min(hi,n)); }
-function parseCSVfloats(s){ if(!s) return []; return s.split(",").map(x=>parseFloat(x.trim()||"0")); }
+function parseCSVfloats(s) {
+    if (!s) return [];
+    return s.split(",").map(x => {
+        const num = parseFloat(x.trim() || "0");
+        // FIX: If parseFloat results in NaN (e.g., from "abc"), default to 0.
+        return isNaN(num) ? 0 : num;
+    });
+}
 function parseCSVstrings(s){ if(!s) return []; return s.split(",").map(x=>x.trim().toUpperCase()).filter(Boolean); }
 const THEMES={
   maritime:{ label:"Maritime Midnight", colorScheme:"dark", vars:{ '--bg':'#0b1724','--panel':'#0f1f2f','--panel-2':'#11263a','--ink':'#f0f7ff','--muted':'#8ba9c8','--border':'#1e3a56','--accent':'#2bb4d4','--accent-2':'#fdd384' } },
@@ -1738,26 +1745,38 @@ function bindInputs(){
   });
   document.getElementById('downloadBtn').onclick=downloadPDF;
   document.getElementById('saveCfg').onclick=()=>{ const cfg=readConfig(); downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'})); };
-  document.getElementById('loadCfg').addEventListener('change', async e=>{
-    const f=e.target.files?.[0]; if(!f) return; const txt=await f.text();
-    try{
-      const obj=JSON.parse(txt);
-      if(layoutState){ layoutStateByMode.set(currentLayoutMode, layoutState); }
-      applyConfigToUI(obj);
-      if(obj.layout){
-        layoutState = obj.layout;
-        layoutState._custom = obj.layout._custom ?? true;
-        const targetMode = (obj.mode && obj.mode.toLowerCase()==='qslcard') ? 'qslCard' : (obj.mode || currentLayoutMode);
-        currentLayoutMode = targetMode;
-        layoutStateByMode.set(currentLayoutMode, layoutState);
-      }
-      autoResizeOffsetCSVs();
-      rows = buildRows(recs); // Re-process data after loading config with new date format
-      recompute();
-    }catch{
-      alert("Invalid config JSON");
+  document.getElementById('loadCfg').addEventListener('change', async e => {
+    const f = e.target.files ? .[0];
+    if (!f) return;
+    const txt = await f.text();
+    try {
+        const obj = JSON.parse(txt);
+
+        // FIX: Restore columns from the loaded configuration file
+        if (obj.columns && Array.isArray(obj.columns)) {
+            const wrap = document.getElementById('columns');
+            wrap.innerHTML = ""; // Clear existing columns before adding new ones
+            obj.columns.forEach(col => addColumnRow(col.header, col.source));
+        }
+
+        if (layoutState) {
+            layoutStateByMode.set(currentLayoutMode, layoutState);
+        }
+        applyConfigToUI(obj);
+        if (obj.layout) {
+            layoutState = obj.layout;
+            layoutState._custom = obj.layout._custom ?? true;
+            const targetMode = (obj.mode && obj.mode.toLowerCase() === 'qslcard') ? 'qslCard' : (obj.mode || currentLayoutMode);
+            currentLayoutMode = targetMode;
+            layoutStateByMode.set(currentLayoutMode, layoutState);
+        }
+        autoResizeOffsetCSVs();
+        rows = buildRows(recs); // Re-process data after loading config with new date format
+        recompute();
+    } catch {
+        alert("Invalid config JSON");
     }
-  });
+});
   document.getElementById('reloadSample').onclick=()=> loadSample();
   const editBtn=document.getElementById('editLayoutBtn');
   if(editBtn) editBtn.onclick=()=> toggleEditor(true);
