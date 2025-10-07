@@ -713,7 +713,11 @@ function parseADIF(text){
   }
   return out;
 }
-function fmtDate(s){ if(!s) return ""; s=s.trim(); return (s.length>=8&&/^\d{8}/.test(s))?`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`:s; }
+function fmtDate(s){ 
+  if(!s) return ""; 
+  s=s.trim(); 
+  return (s.length>=8 && /^\d{8}/.test(s)) ? `${s.slice(6,8)}-${s.slice(4,6)}-${s.slice(0,4)}` : s; 
+}
 function fmtTime(s){ if(!s) return ""; s=s.trim(); return (s.length>=4&&/^\d{4}/.test(s))?`${s.slice(0,2)}:${s.slice(2,4)}`:s; }
 function deriveCallPrefix(call){
   if(!call) return "";
@@ -800,7 +804,18 @@ function buildRows(recs){
   }
   return rows;
 }
-function parseYMD(s){ if(!s) return null; const m=/(^(\d{4})-(\d{2})-(\d{2})$)/.exec(s); if(!m) return null; return s.replace(/-/g,''); }
+function parseYMD(s){
+  if (!s) return null;
+  const parts = s.split('-');
+  // Check for DD-MM-YYYY format
+  if (parts.length === 3 && parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
+    const day = parts[0];
+    const month = parts[1];
+    const year = parts[2];
+    return `${year}${month}${day}`; // Return in YYYYMMDD format for filtering
+  }
+  return null; // Return null if the format is not correct
+}
 function getQslFieldVal(rec, fieldSel){
   const up=(x)=>String(x||"").toUpperCase();
   if(fieldSel==="QSL_RCVD") return up(rec.QSL_RCVD);
