@@ -1770,13 +1770,13 @@ function bindInputs(){
   document.getElementById('downloadBtn').onclick=downloadPDF;
   document.getElementById('saveCfg').onclick=()=>{ const cfg=readConfig(); downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'})); };
   document.getElementById('loadCfg').addEventListener('change', async e => {
-    const f = e.target.files ? .[0];
+    const f = e.target.files?.[0]; // CORRECTED THIS LINE
     if (!f) return;
     const txt = await f.text();
     try {
         const obj = JSON.parse(txt);
 
-        // FIX: Restore columns from the loaded configuration file
+        // Restore columns from the loaded configuration file
         if (obj.columns && Array.isArray(obj.columns)) {
             const wrap = document.getElementById('columns');
             wrap.innerHTML = ""; // Clear existing columns before adding new ones
