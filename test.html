@@ -1424,19 +1424,43 @@ async function downloadPDF() {
 }
 
 /* ===== Column UI & picker ===== */
-function addColumnRow(header, source){
-  const wrap=document.getElementById('columns');
-  const row=document.createElement('div'); row.className='col-row';
-  row.innerHTML=`<input class="col-h" type="text" placeholder="Header" value="${header||''}">
+function addColumnRow(header, source) {
+    const wrap = document.getElementById('columns');
+    const row = document.createElement('div');
+    row.className = 'col-row';
+    row.innerHTML = `<input class="col-h" type="text" placeholder="Header" value="${header||''}">
                  <select class="col-s"></select>
                  <button class="remove">✕</button>`;
-  const sel=row.querySelector('.col-s');
-  const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
-  [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
-  if(source){ sel.value=String(source).toUpperCase(); }
-  row.querySelector('.remove').onclick=()=>{ row.remove(); recompute(); };
-  wrap.appendChild(row);
-}
+
+    // FIX: Get references to the new inputs and attach the event listeners
+    const headerInput = row.querySelector('.col-h');
+    const sourceSelect = row.querySelector('.col-s');
+    const recomputeDebounced = debounce(recompute, 120);
+    headerInput.addEventListener('input', recomputeDebounced);
+    sourceSelect.addEventListener('change', recomputeDebounced);
+
+    const sel = sourceSelect;
+    const defaults = ["DATE", "TIME", "BAND", "MODE", "QSL"];
+    const seen = new Set();
+    [...defaults, ...adifFields].forEach(tag => {
+        if (!tag) return;
+        const up = String(tag).toUpperCase();
+        if (seen.has(up)) return;
+        seen.add(up);
+        const opt = document.createElement('option');
+        opt.value = up;
+        opt.textContent = up;
+        sel.appendChild(opt);
+    });
+    if (source) {
+        sel.value = String(source).toUpperCase();
+    }
+    row.querySelector('.remove').onclick = () => {
+        row.remove();
+        recompute();
+    };
+    wrap.appendChild(row);
+} 
 function resetDefaultColumns(){ const wrap=document.getElementById('columns'); wrap.innerHTML=""; [["Date","DATE"],["Time","TIME"],["Band","BAND"],["Mode","MODE"],["QSL","QSL"]].forEach(([h,s])=>addColumnRow(h,s)); }
 function syncColArraysToDefaults(){ document.getElementById('minColMM').value="12,10,10,10,6"; document.getElementById('staticColMM').value="20,12,12,18,8"; }
 function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
