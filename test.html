@@ -1232,130 +1232,188 @@ function recompute(){
   computeStats(cfg, rows, filtered);
   if(!editorMode){ renderOnePage(cfg, currentPage); }
 }
-async function downloadPDF(){
-  const cfg=readConfig(); const filtered = applyFilters(rows, cfg.f);
-  const pdfLabels = buildLabelsWithOffset(filtered, cfg);
-  if(filtered.length===0){ alert("No QSOs match the current filters."); return; }
-  const { jsPDF } = window.jspdf;
-  const orientation = (cfg.pageWmm >= cfg.pageHmm) ? 'landscape' : 'portrait';
-  const doc=new jsPDF({ orientation, unit:"mm", format:[cfg.pageWmm,cfg.pageHmm], compress:true });
-  const usableWmmPdf = cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm);
-  const labelWpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelWidthmm) : mm2pt(usableWmmPdf / cfg.cols);
-  const labelHpt = (cfg.mode==='qslCard') ? mm2pt(cfg.cardLabelHeightmm) : mm2pt(cfg.labelHmm);
-  const per=cfg.cols*cfg.rows; const pages=Math.max(1, Math.ceil(pdfLabels.length/per));
-  function pdfText(text,x_mm,y_mm,align="left",font="helvetica",style="normal",size=10,rotation=0){
-    doc.setFont(font,style); doc.setFontSize(size);
-    const opts={ align };
-    if(rotation){ opts.angle = rotation; }
-    doc.text(String(text??""), x_mm, y_mm, opts);
-  }
-  function shrinkAndText(text,x_mm,y_mm,maxW_mm,font="courier",style="normal",startSize=8.2,minSize=5.0,step=0.3,rotation=0){
-    let sz=startSize; doc.setFont(font,style); doc.setFontSize(sz);
-    while(doc.getTextWidth(String(text??""))>maxW_mm && sz>minSize){ sz=Math.max(minSize,sz-step); doc.setFontSize(sz); }
-    if(rotation){ doc.text(String(text??""), x_mm, y_mm, { angle: rotation }); }
-    else{ doc.text(String(text??""), x_mm, y_mm); }
-  }
-  function drawRotatedRect(docInst, toPage, width_mm, height_mm){
-    const corners=[
-      toPage(0,0),
-      toPage(width_mm,0),
-      toPage(width_mm,height_mm),
-      toPage(0,height_mm)
-    ];
-    for(let i=0;i<4;i++){
-      const a=corners[i]; const b=corners[(i+1)%4];
-      docInst.line(a.x, a.y, b.x, b.y);
+async function downloadPDF() {
+    const cfg = readConfig();
+    const filtered = applyFilters(rows, cfg.f);
+    const pdfLabels = buildLabelsWithOffset(filtered, cfg);
+    if (filtered.length === 0) {
+        alert("No QSOs match the current filters.");
+        return;
     }
-  }
-  for(let p=0;p<pages;p++){
-    if(p>0) doc.addPage([cfg.pageWmm,cfg.pageHmm],orientation);
-    if(cfg.dbgOutline && cfg.mode==='qslCard'){
-      doc.setDrawColor(148); doc.setLineWidth(0.1);
-      doc.rect(0,0,cfg.pageWmm,cfg.pageHmm);
-      doc.setDrawColor(0);
-    }
-    const start=p*per, end=Math.min(pdfLabels.length, start+per);
-    for(let idx=start; idx<end; idx++){
-      const local=idx-start; const col=local%cfg.cols; const rowI=Math.floor(local/cols);
-      const item=pdfLabels[idx];
-      const isBlank = !item || !item[0] && (!item[1] || item[1].length===0);
-      const {x0,y0} = computeLabelX0Y0(cfg,col,rowI,labelWpt,labelHpt);
-      const labelW_mm=(cfg.mode==='qslCard') ? cfg.cardLabelWidthmm : pt2mm(labelWpt);
-      const labelH_mm=(cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : pt2mm(labelHpt);
-      const x0_mm=pt2mm(x0);
-      const y0_mm=pt2mm(y0);
-      const rotation = (cfg.mode==='qslCard') ? (cfg.cardLabelRotationDeg||0) : 0;
-      const rad=rotation*Math.PI/180;
-      const sinR=Math.sin(rad);
-      const cosR=Math.cos(rad);
-      const cx = x0_mm + labelW_mm/2;
-      const cy = y0_mm + labelH_mm/2;
-      const toPage = (lx_mm, ly_mm)=>{
-        const absX = x0_mm + lx_mm;
-        const absY = y0_mm + ly_mm;
-        if(!rotation){ return { x: absX, y: absY }; }
-        const dx = absX - cx;
-        const dy = absY - cy;
-        return { x: cx + dx*cosR - dy*sinR, y: cy + dx*sinR + dy*cosR };
-      };
-      const padX_mm=cfg.padXmm;
-      if(cfg.dbgOutline){
-        doc.setDrawColor(187); doc.setLineWidth(0.1);
-        if(rotation){ drawRotatedRect(doc, toPage, labelW_mm, labelH_mm); }
-        else{ doc.rect(x0_mm, y0_mm, labelW_mm, labelH_mm); }
-        doc.setDrawColor(0);
-      }
-      if(isBlank) continue;
-      const [call, chunk]=item;
-      let colWpt;
-      if(cfg.dynamicCols){
-        colWpt = computeColWidths(metricsCanvas.getContext('2d'), {
-          columns: cfg.columns, sizeHeaders: cfg.sizeHeaders, sizeRows: cfg.sizeRows,
-          fontBold: cfg.fontBold, fontMono: cfg.fontMono, minColMM: cfg.minColMM,
-          staticColMM: cfg.staticColMM, colSlackPt: cfg.colSlackPt, shrinkOnly: cfg.shrinkOnly,
-          padXmm: cfg.padXmm,
-        }, chunk, labelWpt);
-      }else{
-        const sum=cfg.staticColMM.reduce((a,b)=>a+b,0)||1; const scale=labelWpt/mm2pt(sum);
-        colWpt=cfg.staticColMM.map(mm=>mm2pt(mm)*scale);
-      }
-      const L = cfg.layout;
-      const toRadioPos = toPage(L.toRadio.x_mm, L.toRadio.y_mm);
-      pdfText("To Radio", toRadioPos.x, toRadioPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
-      const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
-      const callLocalX = (callAlign==="center") ? (labelW_mm/2) : (L.callsign.x_mm ?? padX_mm);
-      const callPos = toPage(callLocalX, L.callsign.y_mm);
-      pdfText(String(call||"").toUpperCase(), callPos.x, callPos.y, callAlign, "helvetica", "bold", cfg.sizeCallsign, rotation);
-      let colAccumPt = 0;
-      for(let i=0;i<cfg.columns.length;i++){
-        const headerLocalX = pt2mm(colAccumPt) + padX_mm;
-        const headerPos = toPage(headerLocalX, L.headers.y_mm);
-        pdfText(cfg.columns[i].header, headerPos.x, headerPos.y, "left", "helvetica", "bold", cfg.sizeHeaders, rotation);
-        colAccumPt += colWpt[i];
-      }
-      const lineGapPt = (L.table.lineGapPt ?? cfg.lineGapPt);
-      for(let r=0;r<cfg.rowsPerLabel;r++){
-        const data=chunk[r]||null; let colAccumPt2=0;
-        for(let i=0;i<cfg.columns.length;i++){
-          const txt = data ? getCellText(data, cfg.columns[i].source) : "";
-          const localX = pt2mm(colAccumPt2) + padX_mm;
-          const localY = L.table.y_mm + pt2mm(lineGapPt * r);
-          const pos = toPage(localX, localY);
-          const maxW_mm = Math.max(0.1, pt2mm(colWpt[i]) - 2*padX_mm);
-          shrinkAndText(txt, pos.x, pos.y, maxW_mm, "courier", "normal", cfg.sizeRows, 5.0, 0.3, rotation);
-          colAccumPt2 += colWpt[i];
+    const {
+        jsPDF
+    } = window.jspdf;
+    const orientation = (cfg.pageWmm >= cfg.pageHmm) ? 'landscape' : 'portrait';
+    const doc = new jsPDF({
+        orientation,
+        unit: "mm",
+        format: [cfg.pageWmm, cfg.pageHmm],
+        compress: true
+    });
+    const usableWmmPdf = cfg.pageWmm - (cfg.marginLmm + cfg.marginRmm);
+    const labelWpt = (cfg.mode === 'qslCard') ? mm2pt(cfg.cardLabelWidthmm) : mm2pt(usableWmmPdf / cfg.cols);
+    const labelHpt = (cfg.mode === 'qslCard') ? mm2pt(cfg.cardLabelHeightmm) : mm2pt(cfg.labelHmm);
+    const per = cfg.cols * cfg.rows;
+    const pages = Math.max(1, Math.ceil(pdfLabels.length / per));
+
+    function pdfText(text, x_mm, y_mm, align = "left", font = "helvetica", style = "normal", size = 10, rotation = 0) {
+        doc.setFont(font, style);
+        doc.setFontSize(size);
+        const opts = {
+            align
+        };
+        if (rotation) {
+            opts.angle = rotation;
         }
-      }
-      const footerLPos = toPage(L.footerL.x_mm, L.footerL.y_mm);
-      pdfText(cfg.footerL, footerLPos.x, footerLPos.y, "left", "helvetica", "normal", cfg.sizeFooter, rotation);
-      const footerRPos = toPage(L.footerR.x_mm, L.footerR.y_mm);
-      pdfText(cfg.footerR, footerRPos.x, footerRPos.y, "right", "helvetica", "normal", cfg.sizeFooter, rotation);
+        doc.text(String(text ?? ""), x_mm, y_mm, opts);
     }
-  }
-  const baseName = cfg.mode==='qslCard' ? 'qsl_card' : 'qsl_labels';
-  const suffix = cfg.sortMode==='PREFIX' ? '_by_prefix' : '';
-  const fileName = `${baseName}${suffix||''}.pdf`;
-  doc.save(fileName);
+
+    function shrinkAndText(text, x_mm, y_mm, maxW_mm, font = "courier", style = "normal", startSize = 8.2, minSize = 5.0, step = 0.3, rotation = 0) {
+        let sz = startSize;
+        doc.setFont(font, style);
+        doc.setFontSize(sz);
+        while (doc.getTextWidth(String(text ?? "")) > maxW_mm && sz > minSize) {
+            sz = Math.max(minSize, sz - step);
+            doc.setFontSize(sz);
+        }
+        if (rotation) {
+            doc.text(String(text ?? ""), x_mm, y_mm, {
+                angle: rotation
+            });
+        } else {
+            doc.text(String(text ?? ""), x_mm, y_mm);
+        }
+    }
+
+    function drawRotatedRect(docInst, toPage, width_mm, height_mm) {
+        const corners = [
+            toPage(0, 0),
+            toPage(width_mm, 0),
+            toPage(width_mm, height_mm),
+            toPage(0, height_mm)
+        ];
+        for (let i = 0; i < 4; i++) {
+            const a = corners[i];
+            const b = corners[(i + 1) % 4];
+            docInst.line(a.x, a.y, b.x, b.y);
+        }
+    }
+    for (let p = 0; p < pages; p++) {
+        if (p > 0) doc.addPage([cfg.pageWmm, cfg.pageHmm], orientation);
+        if (cfg.dbgOutline && cfg.mode === 'qslCard') {
+            doc.setDrawColor(148);
+            doc.setLineWidth(0.1);
+            doc.rect(0, 0, cfg.pageWmm, cfg.pageHmm);
+            doc.setDrawColor(0);
+        }
+        const start = p * per,
+            end = Math.min(pdfLabels.length, start + per);
+        for (let idx = start; idx < end; idx++) {
+            const local = idx - start;
+            const col = local % cfg.cols;
+            const rowI = Math.floor(local / cfg.cols); // <-- THIS LINE IS THE FIX
+            const item = pdfLabels[idx];
+            const isBlank = !item || !item[0] && (!item[1] || item[1].length === 0);
+            const {
+                x0,
+                y0
+            } = computeLabelX0Y0(cfg, col, rowI, labelWpt, labelHpt);
+            const labelW_mm = (cfg.mode === 'qslCard') ? cfg.cardLabelWidthmm : pt2mm(labelWpt);
+            const labelH_mm = (cfg.mode === 'qslCard') ? cfg.cardLabelHeightmm : pt2mm(labelHpt);
+            const x0_mm = pt2mm(x0);
+            const y0_mm = pt2mm(y0);
+            const rotation = (cfg.mode === 'qslCard') ? (cfg.cardLabelRotationDeg || 0) : 0;
+            const rad = rotation * Math.PI / 180;
+            const sinR = Math.sin(rad);
+            const cosR = Math.cos(rad);
+            const cx = x0_mm + labelW_mm / 2;
+            const cy = y0_mm + labelH_mm / 2;
+            const toPage = (lx_mm, ly_mm) => {
+                const absX = x0_mm + lx_mm;
+                const absY = y0_mm + ly_mm;
+                if (!rotation) {
+                    return {
+                        x: absX,
+                        y: absY
+                    };
+                }
+                const dx = absX - cx;
+                const dy = absY - cy;
+                return {
+                    x: cx + dx * cosR - dy * sinR,
+                    y: cy + dx * sinR + dy * cosR
+                };
+            };
+            const padX_mm = cfg.padXmm;
+            if (cfg.dbgOutline) {
+                doc.setDrawColor(187);
+                doc.setLineWidth(0.1);
+                if (rotation) {
+                    drawRotatedRect(doc, toPage, labelW_mm, labelH_mm);
+                } else {
+                    doc.rect(x0_mm, y0_mm, labelW_mm, labelH_mm);
+                }
+                doc.setDrawColor(0);
+            }
+            if (isBlank) continue;
+            const [call, chunk] = item;
+            let colWpt;
+            if (cfg.dynamicCols) {
+                colWpt = computeColWidths(metricsCanvas.getContext('2d'), {
+                    columns: cfg.columns,
+                    sizeHeaders: cfg.sizeHeaders,
+                    sizeRows: cfg.sizeRows,
+                    fontBold: cfg.fontBold,
+                    fontMono: cfg.fontMono,
+                    minColMM: cfg.minColMM,
+                    staticColMM: cfg.staticColMM,
+                    colSlackPt: cfg.colSlackPt,
+                    shrinkOnly: cfg.shrinkOnly,
+                    padXmm: cfg.padXmm,
+                }, chunk, labelWpt);
+            } else {
+                const sum = cfg.staticColMM.reduce((a, b) => a + b, 0) || 1;
+                const scale = labelWpt / mm2pt(sum);
+                colWpt = cfg.staticColMM.map(mm => mm2pt(mm) * scale);
+            }
+            const L = cfg.layout;
+            const toRadioPos = toPage(L.toRadio.x_mm, L.toRadio.y_mm);
+            pdfText("To Radio", toRadioPos.x, toRadioPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
+            const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
+            const callLocalX = (callAlign === "center") ? (labelW_mm / 2) : (L.callsign.x_mm ?? padX_mm);
+            const callPos = toPage(callLocalX, L.callsign.y_mm);
+            pdfText(String(call || "").toUpperCase(), callPos.x, callPos.y, callAlign, "helvetica", "bold", cfg.sizeCallsign, rotation);
+            let colAccumPt = 0;
+            for (let i = 0; i < cfg.columns.length; i++) {
+                const headerLocalX = pt2mm(colAccumPt) + padX_mm;
+                const headerPos = toPage(headerLocalX, L.headers.y_mm);
+                pdfText(cfg.columns[i].header, headerPos.x, headerPos.y, "left", "helvetica", "bold", cfg.sizeHeaders, rotation);
+                colAccumPt += colWpt[i];
+            }
+            const lineGapPt = (L.table.lineGapPt ?? cfg.lineGapPt);
+            for (let r = 0; r < cfg.rowsPerLabel; r++) {
+                const data = chunk[r] || null;
+                let colAccumPt2 = 0;
+                for (let i = 0; i < cfg.columns.length; i++) {
+                    const txt = data ? getCellText(data, cfg.columns[i].source) : "";
+                    const localX = pt2mm(colAccumPt2) + padX_mm;
+                    const localY = L.table.y_mm + pt2mm(lineGapPt * r);
+                    const pos = toPage(localX, localY);
+                    const maxW_mm = Math.max(0.1, pt2mm(colWpt[i]) - 2 * padX_mm);
+                    shrinkAndText(txt, pos.x, pos.y, maxW_mm, "courier", "normal", cfg.sizeRows, 5.0, 0.3, rotation);
+                    colAccumPt2 += colWpt[i];
+                }
+            }
+            const footerLPos = toPage(L.footerL.x_mm, L.footerL.y_mm);
+            pdfText(cfg.footerL, footerLPos.x, footerLPos.y, "left", "helvetica", "normal", cfg.sizeFooter, rotation);
+            const footerRPos = toPage(L.footerR.x_mm, L.footerR.y_mm);
+            pdfText(cfg.footerR, footerRPos.x, footerRPos.y, "right", "helvetica", "normal", cfg.sizeFooter, rotation);
+        }
+    }
+    const baseName = cfg.mode === 'qslCard' ? 'qsl_card' : 'qsl_labels';
+    const suffix = cfg.sortMode === 'PREFIX' ? '_by_prefix' : '';
+    const fileName = `${baseName}${suffix||''}.pdf`;
+    doc.save(fileName);
 }
 
 /* ===== Column UI & picker ===== */
