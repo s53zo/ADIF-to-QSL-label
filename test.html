@@ -1377,21 +1377,33 @@ function syncColArraysToDefaults(){ document.getElementById('minColMM').value="1
 function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
 
 /* ===== Sample data ===== */
-function generateSampleRows(nLabels=10, maxRowsPerLabel=4){
-  const calls=["9A3ST","K1ABC","G4XYZ","DL1AAA","EA7ZZ","I2QSL","F5HAM","OH2FIN","JA1DX","VK2CQ","ZS6RAD","LU5HAM"];
-  const modes=["CW","SSB","FT8","FT4","RTTY"]; const bands=["20M","40M","30M","15M","10M","17M","12M","6M"];
-  const today=new Date(); const pad=n=>String(n).padStart(2,"0"); const rows=[];
-  for(let i=0;i<nLabels;i++){
-    const call=calls[i%calls.length]; const rCount=Math.max(1, Math.floor(Math.random()*maxRowsPerLabel)+1);
-    for(let r=0;r<rCount;r++){
-      const d=new Date(today.getTime() - (i*3+r)*86400000);
-      const date=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
-      const time=`${pad(12+((i+r)%10))}${pad((i*7+r*13)%60)}`;
-      rows.push({ CALL:call, _DATE_RAW:date, _TIME_RAW:time, DATE:fmtDate(date), TIME:fmtTime(time),
-                  BAND:bands[(i+r)%bands.length], MODE:modes[(i+r)%modes.length], QSL:(r%2===0?"TNX":"PSE") });
+function generateSampleRows(nLabels = 10, maxRowsPerLabel = 4) {
+    const calls = ["9A3ST", "K1ABC", "G4XYZ", "DL1AAA", "EA7ZZ", "I2QSL", "F5HAM", "OH2FIN", "JA1DX", "VK2CQ", "ZS6RAD", "LU5HAM"];
+    const modes = ["CW", "SSB", "FT8", "FT4", "RTTY"];
+    const bands = ["20M", "40M", "30M", "15M", "10M", "17M", "12M", "6M"];
+    const today = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    const records = []; // Use a new array for clarity
+    for (let i = 0; i < nLabels; i++) {
+        const call = calls[i % calls.length];
+        const rCount = Math.max(1, Math.floor(Math.random() * maxRowsPerLabel) + 1);
+        for (let r = 0; r < rCount; r++) {
+            const d = new Date(today.getTime() - (i * 3 + r) * 86400000);
+            const date = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+            const time = `${pad(12 + ((i + r) % 10))}${pad((i * 7 + r * 13) % 60)}`;
+            
+            // FIX: Generate raw fields like a real ADIF record, instead of pre-formatted ones.
+            records.push({
+                CALL: call,
+                QSO_DATE: date,
+                TIME_ON: time,
+                BAND: bands[(i + r) % bands.length],
+                MODE: modes[(i + r) % modes.length],
+                // The 'QSL' field will be derived automatically by buildRows
+            });
+        }
     }
-  }
-  return rows;
+    return records;
 }
 function loadSample(){
   const maxRows=+(document.getElementById('rowsPerLabel').value)||4;
