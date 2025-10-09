@@ -462,7 +462,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
                   <path d="M9 4v12"></path>
                 </svg>
               </span>
-              <span class="section-title">Fonts and date format</span>
+              <span class="section-title">All texts format</span>
               <span class="section-chevron" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M8 10l4 4 4-4"></path>
@@ -470,7 +470,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
               </span>
             </button>
             <div class="section-body collapsed">
-              <p class="section-hint">Pick fonts and sizes for headers, rows, and footers.</p>
+              <p class="section-hint">Pick fonts, date format, and frequency precision for your labels.</p>
               <div class="row">
                 <label>Body font</label>
                 <select id="fontBody">
@@ -512,6 +512,10 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
                   <option value="DD.MM.YYYY">DD.MM.YYYY</option>
                   <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                 </select>
+              </div>
+              <div class="row">
+                <label>Frequency decimals</label>
+                <input id="freqDecimals" type="number" min="0" max="6" step="1" value="3">
               </div>
               <div class="row"><label>To Radio (pt)</label><input id="sizeToRadio" type="number" step="0.5" value="7.5"></div>
               <div class="row"><label>Callsign (pt)</label><input id="sizeCallsign" type="number" step="0.5" value="14"></div>
@@ -572,7 +576,8 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
       </div>
 
       <div class="footer-bar">
-        <div class="version">Version v3.01</div>
+        <!-- LLM NOTE: Always bump the version number above when modifying features. -->
+        <div class="version">Version v3.02</div>
         <div class="theme-switcher">
           <label for="themeSelect" class="small muted">Theme</label>
           <select id="themeSelect">
@@ -744,6 +749,15 @@ function fmtDate(s){
   return format.replace('YYYY', year).replace('MM', month).replace('DD', day);
 }
 function fmtTime(s){ if(!s) return ""; s=s.trim(); return (s.length>=4&&/^\d{4}/.test(s))?`${s.slice(0,2)}:${s.slice(2,4)}`:s; }
+function fmtFreq(value, decimals){
+  if(value==null || value==="") return "";
+  const num=Number(value);
+  if(!Number.isFinite(num)) return value;
+  let dec = Number.isFinite(decimals) ? decimals : parseInt(document.getElementById('freqDecimals')?.value || "3", 10);
+  if(!Number.isFinite(dec)) dec = 3;
+  dec = clamp(Math.round(dec), 0, 6);
+  return num.toFixed(dec);
+}
 function deriveCallPrefix(call){
   if(!call) return "";
   const parts = String(call).toUpperCase().split('/')
@@ -960,7 +974,16 @@ function groupLabels(rows, rowsPerLabel, sortMode){
 const metricsCanvas=document.createElement('canvas'); metricsCanvas.width=1000; metricsCanvas.height=200;
 const ctx2dForFonts=metricsCanvas.getContext('2d');
 function measureText(ctx, text, font){ ctx.save(); ctx.font=font; const w=ctx.measureText(text||"").width; ctx.restore(); return w; }
-function getCellText(row, source){ const key=(source||"").toUpperCase().trim(); if(!row) return ""; if(["DATE","TIME","BAND","MODE","QSL"].includes(key)) return row[key]||""; return row[key]||""; }
+function getCellText(row, source, cfg){
+  const key=(source||"").toUpperCase().trim();
+  if(!row) return "";
+  if(key==="FREQ"){
+    const raw = row.FREQ ?? row[key];
+    return fmtFreq(raw, cfg?.freqDecimals);
+  }
+  if(["DATE","TIME","BAND","MODE","QSL"].includes(key)) return row[key]||"";
+  return row[key]||"";
+}
 function computeColWidths(ctx, cfg, qsoRows, labelWpt){
   const cols=cfg.columns; const n=cols.length;
   const padXpt = mm2pt(cfg.padXmm ?? 0);
@@ -971,7 +994,7 @@ function computeColWidths(ctx, cfg, qsoRows, labelWpt){
   });
   for(const row of qsoRows||[]){
     for(let i=0;i<n;i++){
-      const txt=getCellText(row, cols[i].source);
+      const txt=getCellText(row, cols[i].source, cfg);
       const cellW = measureText(ctx, txt, `${cfg.sizeRows}px ${cfg.fontMono}`) + padTotal;
       widths[i]=Math.max(widths[i], cellW);
     }
@@ -1025,6 +1048,9 @@ function readConfig(){
   const dims=pageDims(pm);
   const pageWmm = (mode==='qslCard') ? cardWidth : dims.w;
   const pageHmm = (mode==='qslCard') ? cardHeight : dims.h;
+  let freqDecimalsVal = parseInt(document.getElementById('freqDecimals')?.value || "3", 10);
+  if(!Number.isFinite(freqDecimalsVal)) freqDecimalsVal = 3;
+  freqDecimalsVal = clamp(Math.round(freqDecimalsVal), 0, 6);
   const cfg={
     mode,
     sortMode,
@@ -1061,6 +1087,7 @@ function readConfig(){
     fontMono:document.getElementById('fontMono').value,
     fontBold:document.getElementById('fontBold').value,
     dateFormat: document.getElementById('dateFormat').value,
+    freqDecimals: freqDecimalsVal,
     sizeToRadio:parseFloat(document.getElementById('sizeToRadio').value||"7.5"),
     sizeCallsign:parseFloat(document.getElementById('sizeCallsign').value||"14"),
     sizeHeaders:parseFloat(document.getElementById('sizeHeaders').value||"7.2"),
@@ -1172,7 +1199,7 @@ function renderOnePage(cfg, pageIdx){
         columns: cfg.columns, sizeHeaders: cfg.sizeHeaders, sizeRows: cfg.sizeRows,
         fontBold: cfg.fontBold, fontMono: cfg.fontMono, minColMM: cfg.minColMM,
         staticColMM: cfg.staticColMM, colSlackPt: cfg.colSlackPt, shrinkOnly: cfg.shrinkOnly,
-        padXmm: cfg.padXmm,
+        padXmm: cfg.padXmm, freqDecimals: cfg.freqDecimals,
       }, chunk, labelWpt);
     }else{
       const sum=cfg.staticColMM.reduce((a,b)=>a+b,0)||1;
@@ -1198,7 +1225,7 @@ function renderOnePage(cfg, pageIdx){
       const data=chunk[r]||null; let cx2=x0;
       for(let i=0;i<cfg.columns.length;i++){
         const maxW=Math.max(1, colW[i]-2*padXpt);
-        const txt=data ? getCellText(data, cfg.columns[i].source) : "";
+        const txt=data ? getCellText(data, cfg.columns[i].source, cfg) : "";
         shrinkAndDraw(ctx, txt, cx2+padXpt, firstLineY + r*lineGap, maxW, `${cfg.sizeRows}px ${cfg.fontMono}`);
         cx2+=colW[i];
       }
@@ -1377,6 +1404,7 @@ async function downloadPDF() {
                     colSlackPt: cfg.colSlackPt,
                     shrinkOnly: cfg.shrinkOnly,
                     padXmm: cfg.padXmm,
+                    freqDecimals: cfg.freqDecimals,
                 }, chunk, labelWpt);
             } else {
                 const sum = cfg.staticColMM.reduce((a, b) => a + b, 0) || 1;
@@ -1402,7 +1430,7 @@ async function downloadPDF() {
                 const data = chunk[r] || null;
                 let colAccumPt2 = 0;
                 for (let i = 0; i < cfg.columns.length; i++) {
-                    const txt = data ? getCellText(data, cfg.columns[i].source) : "";
+                    const txt = data ? getCellText(data, cfg.columns[i].source, cfg) : "";
                     const localX = pt2mm(colAccumPt2) + padX_mm;
                     const localY = L.table.y_mm + pt2mm(lineGapPt * r);
                     const pos = toPage(localX, localY);
@@ -1664,6 +1692,11 @@ function applyConfigToUI(cfg){
   if(cfg.fontMono) document.getElementById('fontMono').value=cfg.fontMono;
   if(cfg.fontBold) document.getElementById('fontBold').value=cfg.fontBold;
   if(cfg.dateFormat) document.getElementById('dateFormat').value=cfg.dateFormat;
+  if(cfg.freqDecimals!==undefined){
+    const val = Number(cfg.freqDecimals);
+    const safe = Number.isFinite(val) ? clamp(Math.round(val), 0, 6) : 3;
+    document.getElementById('freqDecimals').value = safe;
+  }
   if(cfg.colOffsets) document.getElementById('colOffsets').value = cfg.colOffsets.join(",");
   if(cfg.rowOffsets) document.getElementById('rowOffsets').value = cfg.rowOffsets.join(",");
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
