@@ -72,7 +72,7 @@ header .spacer{flex:1}
 .subsection.collapsible > .section-toggle:hover{background:var(--panel)}
 .subsection.collapsible > .section-body{background:var(--panel-2)}
 .subsection:first-of-type{margin-top:0}
-.version{margin-top:16px; text-align:center; font-size:12px; color:var(--muted)}
+.version{margin-top:0; text-align:left; font-size:12px; color:var(--muted)}
 
 label{font-size:13px; color:var(--muted)}
 input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{
@@ -101,12 +101,16 @@ canvas{background:#ffffff; border:1px solid var(--border); border-radius:12px; b
 .warn{color:var(--warn); font-size:12px}
 .good{color:var(--good); font-size:12px}
 
-.footer-bar{margin-top:18px; padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:var(--panel); display:flex; align-items:center; gap:16px; justify-content:space-between}
+.footer-bar{margin-top:18px; padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:var(--panel); display:flex; flex-direction:column; align-items:flex-start; gap:12px}
 .footer-bar label{font-size:12px; color:var(--muted); margin-right:8px}
 .footer-bar select{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--panel-2); color:var(--ink)}
 .footer-bar select:focus{outline:none; box-shadow:0 0 0 3px rgba(37,100,190,0.25)}
-.footer-bar .theme-switcher{display:flex; align-items:center; gap:10px}
+.footer-bar .theme-switcher{display:flex; align-items:center; gap:10px; width:100%; justify-content:space-between}
 .footer-bar .theme-switcher select{min-width:180px}
+.footer-message{font-size:11px; color:var(--muted)}
+.footer-message a{color:var(--accent); text-decoration:none}
+.footer-message a:hover{text-decoration:underline}
+.footer-thanks{font-size:10px; color:var(--muted)}
 
 @media (max-width: 1200px){
 .app{grid-template-columns:1fr}
@@ -127,6 +131,10 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
 .banner{ background: var(--panel-2); border-color: var(--border); color: var(--ink) }
 .tag{ background: var(--accent); border:none; color:#fff }
 .dialog{ background: var(--panel) }
+.download-buttons{display:flex; flex-direction:column; gap:10px; margin-top:10px}
+.download-buttons button{width:100%}
+.help{font-size:10px}
+#downloadSection .help{text-align:center}
 </style>
 </head>
 <body>
@@ -159,6 +167,9 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <select id="sortMode">
               <option value="CALL" selected>Callsign (A→Z)</option>
               <option value="PREFIX">DXCC prefix (A→Z)</option>
+              <option value="DATE_ASC">Date (old → new)</option>
+              <option value="DATE_DESC">Date (new → old)</option>
+              <option value="FIFO">As in ADIF (FIFO)</option>
             </select>
           </div>
           <div id="adifWarning" class="warn">Sample data is shown. Upload your ADIF to replace it.</div>
@@ -195,28 +206,36 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
           <div class="row"><label>Modes (CSV)</label><input id="fModes" type="text" placeholder="e.g. CW,SSB,FT8"></div>
           <div class="row"><label>DXCC / Prefix (CSV)</label><input id="fDxcc" type="text" placeholder="e.g. JA, DL"></div>
           <div class="row">
-            <label>QSL field</label>
+            <label>QSL status field</label>
             <select id="fQslField">
-              <option value="ANY" selected>Any of (QSL_RCVD / LOTW_QSL_RCVD / EQSL_QSL_RCVD)</option>
-              <option value="QSL_RCVD">QSL_RCVD</option>
-              <option value="LOTW_QSL_RCVD">LOTW_QSL_RCVD</option>
-              <option value="EQSL_QSL_RCVD">EQSL_QSL_RCVD</option>
+              <option value="ANY" selected>Any received field (QSL_RCVD, LOTW_QSL_RCVD, EQSL_QSL_RCVD)</option>
+              <option value="QSL_RCVD">Paper card received (QSL_RCVD)</option>
+              <option value="LOTW_QSL_RCVD">LoTW confirmation (LOTW_QSL_RCVD)</option>
+              <option value="EQSL_QSL_RCVD">eQSL confirmation (EQSL_QSL_RCVD)</option>
+              <option value="QSL_SENT">Sent status (QSL_SENT)</option>
             </select>
           </div>
           <div class="row">
-            <label>QSL status</label>
+            <label>QSL status filter</label>
             <select id="fQslStatus">
-              <option value="ALL" selected>All</option>
-              <option value="N">Needed (N)</option>
-              <option value="Y">Received (Y)</option>
-              <option value="I">Ignore (I)</option>
-              <option value="NONE">Not received (empty or N)</option>
+              <option value="ALL" selected>Show all statuses</option>
+              <option value="Y">Value is Y (confirmed / sent)</option>
+              <option value="N">Value is N (requested / needed)</option>
+              <option value="NONE">Blank or N (no positive log)</option>
+              <option value="I">Value is I (ignore)</option>
+            </select>
+          </div>
+          <div class="row">
+            <label>Duplicates</label>
+            <select id="fDedupe">
+              <option value="OFF" selected>Keep all</option>
+              <option value="NEWEST">Keep newest</option>
+              <option value="OLDEST">Keep oldest</option>
             </select>
           </div>
           <p class="help">Filters apply live to preview & PDF.</p>
         </div>
       </div>
-
       <div class="section collapsible" id="modeSection" data-section="mode" data-initial="collapsed">
         <button class="section-toggle" type="button" aria-expanded="true">
           <span class="section-icon" aria-hidden="true">
@@ -575,9 +594,21 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
         </div>
       </div>
 
+      <div class="section" id="downloadSection">
+        <h3>Downloads</h3>
+        <p class="section-hint">Prepare your labes, then export PDF and/or
+        ADIF.</p>
+        <div class="download-buttons">
+          <button id="downloadBtn" class="primary" disabled>Download PDF</button>
+          <button id="downloadAdifBtn" disabled title="Adds QSL_SENT=Y and QSL_SENT_VIA=B to the QSOs currently shown.">Export ADIF</button>
+        </div>
+        <p class="help">ADIF export updates each QSO with <code>&lt;QSL_SENT:1&gt;Y</code> and
+        <code>&lt;QSL_SENT_VIA:1&gt;B</code> to mark sent via
+        bureau.</p>
+      </div>
+
       <div class="footer-bar">
         <!-- LLM NOTE: Always bump the version number above when modifying features. -->
-        <div class="version">Version v3.02</div>
         <div class="theme-switcher">
           <label for="themeSelect" class="small muted">Theme</label>
           <select id="themeSelect">
@@ -587,6 +618,9 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
+        <div class="version">Version v4.11</div>
+        <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
+        <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C</div>
       </div>
     </div>
   </aside>
@@ -599,7 +633,6 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
       <h1>QSL Labels</h1>
       <span id="stats" class="stats">QSOs: 0 | Labels: 0 | Pages: 0</span>
       <div class="spacer"></div>
-      <button id="downloadBtn" class="primary" disabled>Download PDF</button>
     </header>
 
     <div id="editorBar" class="editorbar" style="display:none">
@@ -688,7 +721,14 @@ const THEMES={
   paper:{ label:"Classic Paper", colorScheme:"light", vars:{ '--bg':'#fdfbf7','--panel':'#ffffff','--panel-2':'#f5f1eb','--ink':'#302620','--muted':'#7d6d62','--border':'#dcd2c6','--accent':'#22577a','--accent-2':'#38a3a5' } },
   seaside:{ label:"Seaside Daylight", colorScheme:"light", vars:{ '--bg':'#e8f8fb','--panel':'#ffffff','--panel-2':'#dff0f6','--ink':'#083049','--muted':'#5f93ad','--border':'#b3d7e6','--accent':'#0c6ca6','--accent-2':'#f26157' } },
 };
+const SORT_MODES = ['CALL','PREFIX','DATE_ASC','DATE_DESC','FIFO'];
+const FIELD_TAG_WITH_ATTR = /<([A-Za-z0-9_]+):(\d+)(?::([^>]+))?>/ig;
+const PREFERRED_FIELD_ORDER = ['CALL','QSO_DATE','QSO_DATE_OFF','TIME_ON','TIME_OFF','BAND','MODE','FREQ'];
 let currentThemeName = 'maritime';
+let originalAdifHeader = '';
+let originalAdifRecords = [];
+let originalAdifHasHeader = false;
+let adifDownloadName = 'qsl_labels_updated.adi';
 function applyTheme(name, persist=true){
   const resolved = Object.prototype.hasOwnProperty.call(THEMES, name) ? name : (currentThemeName || 'paper');
   const theme = THEMES[resolved] || THEMES.paper;
@@ -734,6 +774,69 @@ function parseADIF(text){
     if(Object.keys(fields).length) out.push(fields);
   }
   return out;
+}
+function formatAdifField(tag, value, attr){
+  const cleanTag = String(tag||"").trim();
+  const tagUpper = cleanTag ? cleanTag.toUpperCase() : "";
+  const valStr = (value==null) ? "" : String(value);
+  const attrPart = attr ? `:${String(attr)}` : "";
+  return `<${tagUpper}:${valStr.length}${attrPart}>${valStr}`;
+}
+function serializeRecordFromObject(rec){
+  if(!rec) return "";
+  const seen=new Set();
+  const fields=[];
+  for(const key of PREFERRED_FIELD_ORDER){
+    if(Object.prototype.hasOwnProperty.call(rec, key)){
+      const val = rec[key];
+      if(val==null || val==="") continue;
+      fields.push({ tag:key, value:String(val), attr:'' });
+      seen.add(key);
+    }
+  }
+  Object.keys(rec).forEach(key=>{
+    const upper = key.toUpperCase();
+    if(upper.startsWith('_') || upper.startsWith('__')) return;
+    if(seen.has(upper)) return;
+    const val = rec[key];
+    if(val==null || val==="") return;
+    fields.push({ tag:upper, value:String(val), attr:'' });
+    seen.add(upper);
+  });
+  return fields.map(f=>formatAdifField(f.tag, f.value, f.attr)).join('');
+}
+function parseRecordFields(recordStr){
+  const fields=[];
+  if(!recordStr) return { fields, trailing:"" };
+  const re = new RegExp(FIELD_TAG_WITH_ATTR.source, 'ig');
+  let lastPos=0; let match;
+  while((match=re.exec(recordStr))!==null){
+    const tagOriginal = match[1];
+    const tag = tagOriginal.toUpperCase();
+    const attr = match[3] || "";
+    const valueStart = match.index + match[0].length;
+    const len = parseInt(match[2],10) || 0;
+    const value = recordStr.substr(valueStart, len);
+    fields.push({ tag, tagOriginal, attr, value });
+    lastPos = valueStart + len;
+    re.lastIndex = lastPos;
+  }
+  const trailing = recordStr.slice(lastPos);
+  return { fields, trailing };
+}
+function ensureQslFields(recordStr){
+  const { fields, trailing } = parseRecordFields(recordStr);
+  const upsert=(tag,value)=>{
+    const existing = fields.find(f=>f.tag===tag);
+    if(existing){
+      existing.value = value;
+    }else{
+      fields.push({ tag, tagOriginal: tag, attr:"", value });
+    }
+  };
+  upsert('QSL_SENT','Y');
+  upsert('QSL_SENT_VIA','B');
+  return fields.map(f=>formatAdifField(f.tagOriginal || f.tag, f.value, f.attr)).join('') + (trailing || "");
 }
 function fmtDate(s){
   if(!s) return "";
@@ -812,7 +915,8 @@ function qslValue(rec){ for(const k of ["QSL_RCVD","LOTW_QSL_RCVD","EQSL_QSL_RCV
 /* ===== Rows & filters ===== */
 function buildRows(recs){
   const rows=[];
-  for(const r of recs){
+  for(let idx=0; idx<recs.length; idx++){
+    const r = recs[idx];
     const call=(r.CALL||"").toUpperCase().trim(); if(!call) continue;
     const date_raw=r.QSO_DATE||r.QSO_DATE_OFF||"";
     const time_raw=r.TIME_ON||r.TIME_OFF||"";
@@ -829,17 +933,21 @@ function buildRows(recs){
     const dxccCountry = (r.COUNTRY || r.APP_DXKEEPER_COUNTRY || "").toString().trim();
     const callPrefix = deriveCallPrefix(call);
     const dxccPrefix = (r.APP_DXKEEPER_DXCCPREFIX || r.PFX || callPrefix || "").toString().trim().toUpperCase();
-    rows.push({
-      CALL:call, _DATE_RAW:date_raw, _TIME_RAW:time_raw,
-      DATE:fmtDate(date_raw), TIME:fmtTime(time_raw),
-      BAND:band,
-      MODE:normMode(r.MODE,r.SUBMODE),
-      _DXCC_NUM:dxccNum,
-      _DXCC_NAME:dxccCountry,
-      _DXCC_PREFIX:dxccPrefix,
-      _CALL_PREFIX:callPrefix,
-      QSL:qslValue(r), ...r
-    });
+    const row = { ...r };
+    row.CALL = call;
+    row._DATE_RAW = date_raw;
+    row._TIME_RAW = time_raw;
+    row.DATE = fmtDate(date_raw);
+    row.TIME = fmtTime(time_raw);
+    row.BAND = band;
+    row.MODE = normMode(r.MODE,r.SUBMODE);
+    row._DXCC_NUM = dxccNum;
+    row._DXCC_NAME = dxccCountry;
+    row._DXCC_PREFIX = dxccPrefix;
+    row._CALL_PREFIX = callPrefix;
+    row.QSL = qslValue(r);
+    row.__recIndex = idx;
+    rows.push(row);
   }
   return rows;
 }
@@ -876,6 +984,7 @@ function getQslFieldVal(rec, fieldSel){
   if(fieldSel==="QSL_RCVD") return up(rec.QSL_RCVD);
   if(fieldSel==="LOTW_QSL_RCVD") return up(rec.LOTW_QSL_RCVD);
   if(fieldSel==="EQSL_QSL_RCVD") return up(rec.EQSL_QSL_RCVD);
+  if(fieldSel==="QSL_SENT") return up(rec.QSL_SENT);
   const a=[up(rec.QSL_RCVD),up(rec.LOTW_QSL_RCVD),up(rec.EQSL_QSL_RCVD)];
   return a.find(v=>v==="Y"||v==="N"||v==="I"||v==="R"||v==="V"||v==="E") || (a.find(v=>v)!=="") || "";
 }
@@ -904,19 +1013,90 @@ function rowPassesFilters(row, f){
   return true;
 }
 
+function dedupeRows(rows, mode){
+  if(!Array.isArray(rows)) return [];
+  const normalized = (mode || 'OFF').toUpperCase();
+  if(normalized!=='NEWEST' && normalized!=='OLDEST'){
+    return rows.slice();
+  }
+  const keepNewest = normalized === 'NEWEST';
+  const keyFor = (row)=>{
+    const call = String(row?.CALL || '').toUpperCase();
+    const band = String(row?.BAND || '').toUpperCase();
+    const modeVal = String(row?.MODE || '').toUpperCase();
+    return `${call}||${band}||${modeVal}`;
+  };
+  const stampFor = (row)=>{
+    if(!row) return -Infinity;
+    const rawDate = String(row._DATE_RAW || (row.DATE ? row.DATE.replace(/\D/g,'') : '') || '0');
+    const paddedDate = rawDate.padEnd(8,'0').slice(0,8);
+    const rawTimeSrc = row._TIME_RAW || (row.TIME ? row.TIME.replace(/[^0-9]/g,'') : '') || '0';
+    const paddedTime = String(rawTimeSrc).padEnd(6,'0').slice(0,6);
+    const dateNum = parseInt(paddedDate,10) || 0;
+    const timeNum = parseInt(paddedTime,10) || 0;
+    return dateNum * 1000000 + timeNum;
+  };
+  const best = new Map();
+  rows.forEach(row=>{
+    if(!row) return;
+    const key = keyFor(row);
+    const existing = best.get(key);
+    if(!existing){
+      best.set(key, row);
+      return;
+    }
+    const candidateStamp = stampFor(row);
+    const existingStamp = stampFor(existing);
+    if(keepNewest){
+      if(candidateStamp > existingStamp){
+        best.set(key, row);
+      }else if(candidateStamp === existingStamp){
+        const candIdx = Number.isFinite(row.__recIndex) ? row.__recIndex : -Infinity;
+        const existIdx = Number.isFinite(existing.__recIndex) ? existing.__recIndex : -Infinity;
+        if(candIdx > existIdx){
+          best.set(key, row);
+        }
+      }
+    }else{
+      if(candidateStamp < existingStamp){
+        best.set(key, row);
+      }else if(candidateStamp === existingStamp){
+        const candIdx = Number.isFinite(row.__recIndex) ? row.__recIndex : Infinity;
+        const existIdx = Number.isFinite(existing.__recIndex) ? existing.__recIndex : Infinity;
+        if(candIdx < existIdx){
+          best.set(key, row);
+        }
+      }
+    }
+  });
+  const emitted = new Set();
+  const result = [];
+  rows.forEach(row=>{
+    if(!row) return;
+    const key = keyFor(row);
+    if(best.get(key) === row && !emitted.has(key)){
+      result.push(row);
+      emitted.add(key);
+    }
+  });
+  return result;
+}
+
 /* ===== Grouping & layout ===== */
 function groupLabels(rows, rowsPerLabel, sortMode){
   const by=new Map();
   const meta=new Map();
+  let nextIndex = 0;
   for(const r of rows){
     if(!by.has(r.CALL)) by.set(r.CALL,[]);
     by.get(r.CALL).push(r);
+    const ts = (r._DATE_RAW || "") + (r._TIME_RAW || "");
     if(!meta.has(r.CALL)){
       const dxcc = (typeof r._DXCC_NUM === 'number' && Number.isFinite(r._DXCC_NUM)) ? r._DXCC_NUM : Infinity;
       const name = (r._DXCC_NAME || r.COUNTRY || r._DXCC_PREFIX || '').toString().toUpperCase();
       const prefix = (r._DXCC_PREFIX || r._CALL_PREFIX || '').toString().toUpperCase();
       const callPrefix = (r._CALL_PREFIX || '').toString().toUpperCase();
-      meta.set(r.CALL, { dxcc, name, prefix, callPrefix, call: r.CALL });
+      meta.set(r.CALL, { dxcc, name, prefix, callPrefix, call: r.CALL, firstTS: ts, lastTS: ts, firstIndex: nextIndex++ });
     }else{
       const info = meta.get(r.CALL);
       const dxccCandidate = (typeof r._DXCC_NUM === 'number' && Number.isFinite(r._DXCC_NUM)) ? r._DXCC_NUM : Infinity;
@@ -927,39 +1107,49 @@ function groupLabels(rows, rowsPerLabel, sortMode){
       }
       if(!info.prefix && (r._DXCC_PREFIX || r._CALL_PREFIX)){ info.prefix = (r._DXCC_PREFIX || r._CALL_PREFIX || '').toString().toUpperCase(); }
       if(!info.callPrefix && r._CALL_PREFIX){ info.callPrefix = r._CALL_PREFIX.toString().toUpperCase(); }
+      if(ts){
+        if(!info.firstTS || ts < info.firstTS) info.firstTS = ts;
+        if(!info.lastTS || ts > info.lastTS) info.lastTS = ts;
+      }
     }
   }
+  const mode=(sortMode||'CALL').toUpperCase();
   for(const arr of by.values()){
-    arr.sort((a,b)=>(a._DATE_RAW+a._TIME_RAW).localeCompare(b._DATE_RAW+b._TIME_RAW));
+    if(mode!=='FIFO'){
+      arr.sort((a,b)=>(a._DATE_RAW+a._TIME_RAW).localeCompare(b._DATE_RAW+b._TIME_RAW));
+    }
   }
   const keys=[...by.keys()];
-  const mode=(sortMode||'CALL').toUpperCase();
-  keys.sort((a,b)=>{
-    if(mode==='DXCC'){
-      const ma=meta.get(a)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:a};
-      const mb=meta.get(b)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:b};
-      if(ma.dxcc < mb.dxcc) return -1;
-      if(ma.dxcc > mb.dxcc) return 1;
-      const nameCompare=(ma.name||'').localeCompare(mb.name||'');
-      if(nameCompare!==0) return nameCompare;
-      const prefixCompare=(ma.prefix||'').localeCompare(mb.prefix||'');
-      if(prefixCompare!==0) return prefixCompare;
-      const callPrefCompare=(ma.callPrefix||'').localeCompare(mb.callPrefix||'');
-      if(callPrefCompare!==0) return callPrefCompare;
-    } else if(mode==='PREFIX'){
-      const ma=meta.get(a)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:a};
-      const mb=meta.get(b)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:b};
-      const prefixCompare=(ma.prefix||'').localeCompare(mb.prefix||'');
-      if(prefixCompare!==0) return prefixCompare;
-      const callPrefCompare=(ma.callPrefix||'').localeCompare(mb.callPrefix||'');
-      if(callPrefCompare!==0) return callPrefCompare;
-      const dxccCompare = (ma.dxcc||Infinity) - (mb.dxcc||Infinity);
-      if(dxccCompare!==0) return dxccCompare;
-      const nameCompare=(ma.name||'').localeCompare(mb.name||'');
-      if(nameCompare!==0) return nameCompare;
-    }
-    return a.localeCompare(b);
-  });
+  if(mode!=='FIFO'){
+    keys.sort((a,b)=>{
+      const ma=meta.get(a)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:a,firstTS:'',lastTS:'',firstIndex:Number.MAX_SAFE_INTEGER};
+      const mb=meta.get(b)||{dxcc:Infinity,name:'',prefix:'',callPrefix:'',call:b,firstTS:'',lastTS:'',firstIndex:Number.MAX_SAFE_INTEGER};
+      if(mode==='PREFIX'){
+        const prefixCompare=(ma.prefix||'').localeCompare(mb.prefix||'');
+        if(prefixCompare!==0) return prefixCompare;
+        const callPrefCompare=(ma.callPrefix||'').localeCompare(mb.callPrefix||'');
+        if(callPrefCompare!==0) return callPrefCompare;
+        const dxccCompare = (ma.dxcc??Infinity) - (mb.dxcc??Infinity);
+        if(dxccCompare!==0) return dxccCompare;
+        const nameCompare=(ma.name||'').localeCompare(mb.name||'');
+        if(nameCompare!==0) return nameCompare;
+        return (ma.firstIndex??0) - (mb.firstIndex??0);
+      } else if(mode==='DATE_ASC'){
+        const ta = ma.firstTS || "";
+        const tb = mb.firstTS || "";
+        if(ta!==tb) return ta.localeCompare(tb);
+        return (ma.firstIndex??0) - (mb.firstIndex??0);
+      } else if(mode==='DATE_DESC'){
+        const ta = ma.lastTS || "";
+        const tb = mb.lastTS || "";
+        if(ta!==tb) return tb.localeCompare(ta);
+        return (ma.firstIndex??0) - (mb.firstIndex??0);
+      }
+      const callCompare = a.localeCompare(b);
+      if(callCompare!==0) return callCompare;
+      return (ma.firstIndex??0) - (mb.firstIndex??0);
+    });
+  }
   const labels=[];
   for(const k of keys){
     const arr=by.get(k);
@@ -1043,8 +1233,10 @@ function readConfig(){
   const cardLabelX=parseFloat(document.getElementById('cardLabelX')?.value||"0");
   const cardLabelY=parseFloat(document.getElementById('cardLabelY')?.value||"0");
   const cardLabelRotation=parseFloat(document.getElementById('cardLabelRotation')?.value||"0");
-  const rawSort=(document.getElementById('sortMode')?.value||'CALL');
-  const sortMode = rawSort === 'DXCC' ? 'PREFIX' : rawSort;
+  const rawSort=(document.getElementById('sortMode')?.value||'CALL').toUpperCase();
+  const sortMode = SORT_MODES.includes(rawSort) ? rawSort : 'CALL';
+  const dedupeRaw = (document.getElementById('fDedupe')?.value || 'OFF').toUpperCase();
+  const dedupeMode = (dedupeRaw === 'NEWEST' || dedupeRaw === 'OLDEST') ? dedupeRaw : 'OFF';
   const dims=pageDims(pm);
   const pageWmm = (mode==='qslCard') ? cardWidth : dims.w;
   const pageHmm = (mode==='qslCard') ? cardHeight : dims.h;
@@ -1101,6 +1293,7 @@ function readConfig(){
     cardLabelXmm:cardLabelX,
     cardLabelYmm:cardLabelY,
     cardLabelRotationDeg:cardLabelRotation,
+    dedupeMode,
     f:{
       from: parseYMD(document.getElementById('fDateFrom').value || ""),
       to:   parseYMD(document.getElementById('fDateTo').value || ""),
@@ -1109,6 +1302,7 @@ function readConfig(){
       dxcc:  new Set(parseCSVstrings(document.getElementById('fDxcc').value)),
       qslField: document.getElementById('fQslField').value || "ANY",
     qslStatus: document.getElementById('fQslStatus').value || "ALL",
+    dedupeMode
     }
   };
   cfg.themeName = currentThemeName || 'paper';
@@ -1146,6 +1340,8 @@ function computeStats(cfg, baseRows, filteredRows){
   document.getElementById('pageInfo').textContent = `Page ${Math.min(currentPage+1,pages)} / ${pages}`;
   document.getElementById('stats').textContent = `QSOs: ${filteredRows.length} | Labels: ${labels.filter(l=>l && l[1] && l[1].length).length} | Pages: ${pages}`;
   document.getElementById('downloadBtn').disabled = (filteredRows.length===0);
+  const adifBtn = document.getElementById('downloadAdifBtn');
+  if(adifBtn){ adifBtn.disabled = (filteredRows.length===0); }
   const warn = document.getElementById('adifWarning');
   const banner = document.getElementById('banner');
   if(usingSample){ warn.textContent = "Sample data is shown. Upload your ADIF to replace it."; warn.style.display="block"; banner.style.display="block"; }
@@ -1246,7 +1442,16 @@ function shrinkAndDraw(ctx, text, x, y, maxW, font, minSize=5, step=0.3){
 }
 
 /* ===== Filters + Start-at offset ===== */
-function applyFilters(allRows, f){ return allRows.filter(r=>rowPassesFilters(r, f)); }
+function applyFilters(allRows, f, dedupeMode){
+  const filtered = [];
+  for(const row of allRows || []){
+    if(rowPassesFilters(row, f)){
+      filtered.push(row);
+    }
+  }
+  const resolvedMode = dedupeMode || (f && f.dedupeMode);
+  return dedupeRows(filtered, resolvedMode);
+}
 function buildLabelsWithOffset(filteredRows, cfg){
   const grouped = groupLabels(filteredRows, cfg.rowsPerLabel, cfg.sortMode);
   if(cfg.mode==='qslCard'){ return grouped; }
@@ -1259,7 +1464,7 @@ function buildLabelsWithOffset(filteredRows, cfg){
 /* ===== Recompute & PDF ===== */
 function recompute(){
   const cfg=readConfig();
-  const filtered = applyFilters(rows, cfg.f);
+  const filtered = applyFilters(rows, cfg.f, cfg.dedupeMode);
   labels = buildLabelsWithOffset(filtered, cfg);
   const per=cfg.cols*cfg.rows; const pages=Math.max(1, Math.ceil(labels.length/per));
   currentPage = clamp(currentPage, 0, pages-1);
@@ -1268,7 +1473,7 @@ function recompute(){
 }
 async function downloadPDF() {
     const cfg = readConfig();
-    const filtered = applyFilters(rows, cfg.f);
+    const filtered = applyFilters(rows, cfg.f, cfg.dedupeMode);
     const pdfLabels = buildLabelsWithOffset(filtered, cfg);
     if (filtered.length === 0) {
         alert("No QSOs match the current filters.");
@@ -1446,9 +1651,56 @@ async function downloadPDF() {
         }
     }
     const baseName = cfg.mode === 'qslCard' ? 'qsl_card' : 'qsl_labels';
-    const suffix = cfg.sortMode === 'PREFIX' ? '_by_prefix' : '';
+    const suffixMap = {
+        PREFIX: '_by_prefix',
+        DATE_ASC: '_by_date_old_to_new',
+        DATE_DESC: '_by_date_new_to_old',
+        FIFO: '_fifo'
+    };
+    const suffix = suffixMap[cfg.sortMode] || '';
     const fileName = `${baseName}${suffix||''}.pdf`;
     doc.save(fileName);
+}
+
+function downloadUpdatedAdif(){
+    const cfg = readConfig();
+    const filtered = applyFilters(rows, cfg.f, cfg.dedupeMode);
+    if (!filtered.length) {
+        alert("No QSOs match the current filters.");
+        return;
+    }
+    const indexSet = new Set();
+    filtered.forEach(row => {
+        if (row && typeof row.__recIndex === 'number' && row.__recIndex >= 0) {
+            indexSet.add(row.__recIndex);
+        }
+    });
+    if (!indexSet.size) {
+        alert("Unable to map filtered QSOs back to the original ADIF records.");
+        return;
+    }
+    const recordSource = (Array.isArray(originalAdifRecords) && originalAdifRecords.length === recs.length)
+        ? originalAdifRecords
+        : recs.map(rec => serializeRecordFromObject(rec));
+    const updatedRecords = [];
+    for (let i = 0; i < recs.length; i++) {
+        const base = recordSource[i] ?? serializeRecordFromObject(recs[i]);
+        const recordBody = indexSet.has(i) ? ensureQslFields(base) : base;
+        updatedRecords.push(recordBody.trim());
+    }
+    const headerLine = (originalAdifHeader && originalAdifHeader.trim().length)
+        ? originalAdifHeader.trimEnd()
+        : "Generated by QSL Labels v3.03";
+    let output = "";
+    if (headerLine) {
+        output += headerLine + "\n";
+    }
+    output += "<EOH>\n";
+    updatedRecords.forEach(body => {
+        output += body + "\n<EOR>\n";
+    });
+    const name = adifDownloadName || "qsl_labels_updated.adi";
+    downloadBlob(name, new Blob([output], { type: 'text/plain' }));
 }
 
 /* ===== Column UI & picker ===== */
@@ -1525,6 +1777,10 @@ function generateSampleRows(nLabels = 10, maxRowsPerLabel = 4) {
 function loadSample(){
   const maxRows=+(document.getElementById('rowsPerLabel').value)||4;
   recs = generateSampleRows(10, maxRows); // Store raw data in recs
+  originalAdifHeader = "Generated by QSL Labels sample";
+  originalAdifHasHeader = true;
+  originalAdifRecords = recs.map(rec=>serializeRecordFromObject(rec));
+  adifDownloadName = 'sample_qsl_updated.adi';
   rows = buildRows(recs); // Process it into rows
   const tags=new Set(); rows.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
   adifFields=Array.from(tags).sort();
@@ -1684,9 +1940,23 @@ function applyConfigToUI(cfg){
     xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', footerL:'footerL', footerR:'footerR',
     footerRShiftmm:'footerRShift', footerYShiftmm:'footerYShift', rowsPerLabel:'rowsPerLabel', colSlackPt:'slackPt',
     lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
-    startRow:'startRow', startCol:'startCol', sortMode:'sortMode'
+    startRow:'startRow', startCol:'startCol', sortMode:'sortMode', dedupeMode:'fDedupe'
   };
-  if(cfg.sortMode==='DXCC') cfg.sortMode='PREFIX';
+  if(cfg.sortMode){
+    const normalizedSort = String(cfg.sortMode).toUpperCase();
+    cfg.sortMode = SORT_MODES.includes(normalizedSort) ? normalizedSort : 'CALL';
+  }else{
+    cfg.sortMode = 'CALL';
+  }
+  if((cfg==null || cfg.dedupeMode==null) && cfg?.f && cfg.f.dedupeMode){
+    cfg.dedupeMode = cfg.f.dedupeMode;
+  }
+  if(cfg.dedupeMode){
+    const normalizedDedupe = String(cfg.dedupeMode).toUpperCase();
+    cfg.dedupeMode = (normalizedDedupe==='NEWEST' || normalizedDedupe==='OLDEST') ? normalizedDedupe : 'OFF';
+  }else{
+    cfg.dedupeMode = 'OFF';
+  }
   for(const k in map){ if(cfg[k]!==undefined) document.getElementById(map[k]).value=cfg[k]; }
   if(cfg.fontBody) document.getElementById('fontBody').value=cfg.fontBody;
   if(cfg.fontMono) document.getElementById('fontMono').value=cfg.fontMono;
@@ -1749,7 +2019,7 @@ function autoResizeOffsetCSVs(){
 }
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
-    if(["adifFile","downloadBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat"].includes(el.id)) return;
+    if(["adifFile","downloadBtn","downloadAdifBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat"].includes(el.id)) return;
     if(el.id==='themeSelect') return;
     if(el.classList.contains('section-toggle') || el.classList.contains('mode-option')) return;
     el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
@@ -1778,7 +2048,33 @@ function bindInputs(){
   document.getElementById('nextPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.min(pages-1,currentPage+1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
   document.getElementById('adifFile').addEventListener('change', async (e)=>{
     const f=e.target.files?.[0]; if(!f) return; const txt=await f.text();
-    const recsRaw=parseADIF(txt); recs=recsRaw; rows=buildRows(recs);
+    const normalized = txt.replace(/\r\n?/g,"\n");
+    const eohMatch = normalized.match(/<eoh>/i);
+    let header = "";
+    let body = normalized;
+    if(eohMatch){
+      header = normalized.slice(0, eohMatch.index);
+      body = normalized.slice(eohMatch.index + eohMatch[0].length);
+      originalAdifHasHeader = true;
+    }else{
+      header = "";
+      body = normalized;
+      originalAdifHasHeader = false;
+    }
+    const rawChunks = body.split(/<eor>/ig);
+    const recordStrings = [];
+    rawChunks.forEach(chunk=>{
+      const trimmed = chunk.trim();
+      if(trimmed) recordStrings.push(trimmed);
+    });
+    const recsRaw=parseADIF(normalized); recs=recsRaw; rows=buildRows(recs);
+    originalAdifHeader = header.replace(/\s+$/,'');
+    originalAdifRecords = recordStrings.length === recsRaw.length ? recordStrings : recsRaw.map(rec=>serializeRecordFromObject(rec));
+    if(originalAdifRecords.length !== recsRaw.length){
+      originalAdifRecords = recsRaw.map(rec=>serializeRecordFromObject(rec));
+    }
+    const stem = f.name ? f.name.replace(/\.(adi|adif|txt)$/i, '') : 'adif';
+    adifDownloadName = `${stem || 'adif'}_qsl_updated.adi`;
     const tags=new Set(); recs.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
     adifFields=Array.from(tags).sort();
     usingSample=false; currentPage=0;
@@ -1801,6 +2097,8 @@ function bindInputs(){
     } catch(e){ /* no-op */ }
   });
   document.getElementById('downloadBtn').onclick=downloadPDF;
+  const dlAdifButton = document.getElementById('downloadAdifBtn');
+  if(dlAdifButton){ dlAdifButton.onclick=downloadUpdatedAdif; }
   document.getElementById('saveCfg').onclick=()=>{ const cfg=readConfig(); downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'})); };
   document.getElementById('loadCfg').addEventListener('change', async e => {
     const f = e.target.files?.[0]; // CORRECTED THIS LINE
