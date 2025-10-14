@@ -89,8 +89,8 @@ button:disabled{cursor:not-allowed; opacity:0.65}
 .tooltip{position:relative; display:block}
 .tooltip::after{content:attr(data-tooltip); position:absolute; left:50%; bottom:calc(100% + 6px); transform:translate(-55%, 6px); background:var(--panel); border:1px solid var(--border); box-shadow:var(--shadow); color:var(--ink); padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3; white-space:normal; width:max-content; max-width:260px; opacity:0; pointer-events:none; transition:opacity .1s ease, transform .1s ease; z-index:10}
 .tooltip::before{content:""; position:absolute; left:50%; bottom:calc(100% + 2px); transform:translate(-55%, 4px) rotate(45deg); width:10px; height:10px; background:var(--panel); border-left:1px solid var(--border); border-top:1px solid var(--border); box-shadow:var(--shadow); opacity:0; transition:opacity .1s ease, transform .1s ease; z-index:9; transform-origin:center}
-.tooltip:hover::after, .tooltip:focus-within::after{opacity:1; transform:translate(-55%, 2px)}
-.tooltip:hover::before, .tooltip:focus-within::before{opacity:1; transform:translate(-55%, 0) rotate(45deg)}
+.tooltip.is-active::after{opacity:1; transform:translate(-55%, 2px)}
+.tooltip.is-active::before{opacity:1; transform:translate(-55%, 0) rotate(45deg)}
 .download-buttons .tooltip{width:100%}
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
 
@@ -629,7 +629,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
-        <div class="version">Version v4.11</div>
+        <div class="version">Version v4.12</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C</div>
       </div>
@@ -2110,6 +2110,23 @@ function bindInputs(){
   document.getElementById('downloadBtn').onclick=downloadPDF;
   const dlAdifButton = document.getElementById('downloadAdifBtn');
   if(dlAdifButton){ dlAdifButton.onclick=downloadUpdatedAdif; }
+  const adifTooltip = document.querySelector('.download-tooltip');
+  if(adifTooltip){
+    let tooltipTimer;
+    const showTooltip = () => {
+      clearTimeout(tooltipTimer);
+      adifTooltip.classList.add('is-active');
+      tooltipTimer = window.setTimeout(()=>{ adifTooltip.classList.remove('is-active'); }, 3000);
+    };
+    const hideTooltip = () => {
+      clearTimeout(tooltipTimer);
+      adifTooltip.classList.remove('is-active');
+    };
+    adifTooltip.addEventListener('mouseenter', showTooltip);
+    adifTooltip.addEventListener('mouseleave', hideTooltip);
+    adifTooltip.addEventListener('focusin', showTooltip);
+    adifTooltip.addEventListener('focusout', hideTooltip);
+  }
   document.getElementById('saveCfg').onclick=()=>{ const cfg=readConfig(); downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'})); };
   document.getElementById('loadCfg').addEventListener('change', async e => {
     const f = e.target.files?.[0]; // CORRECTED THIS LINE
