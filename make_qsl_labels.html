@@ -212,7 +212,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
           </div>
           <div class="row"><label>Bands (CSV)</label><input id="fBands" type="text" placeholder="e.g. 20M,40M"></div>
           <div class="row"><label>Modes (CSV)</label><input id="fModes" type="text" placeholder="e.g. CW,SSB,FT8"></div>
-          <div class="row"><label>DXCC / Prefix (CSV)</label><input id="fDxcc" type="text" placeholder="e.g. JA, DL"></div>
+          <div class="row"><label>DXCC / Prefix / Callsign (CSV)</label><input id="fDxcc" type="text" placeholder="e.g. JA, DL, S53ZO"></div>
           <div class="row">
             <label>QSL status field</label>
             <select id="fQslField">
@@ -629,7 +629,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
-        <div class="version">Version v4.12</div>
+        <div class="version">Version v4.14</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C</div>
       </div>
@@ -888,6 +888,23 @@ function deriveCallPrefix(call){
   const match = best.match(/^[A-Z0-9]+/);
   return match ? match[0] : best;
 }
+function callFilterVariants(call){
+  const main = (call || "").toString().toUpperCase().trim();
+  if(!main) return [];
+  const variants = new Set([main]);
+  if(main.includes('/')){
+    const slashParts = main.split('/').map(p=>p.trim()).filter(Boolean);
+    if(slashParts.length){
+      variants.add(slashParts[0]);
+      variants.add(slashParts[slashParts.length-1]);
+    }
+  }
+  if(main.includes('-')){
+    const dashPart = main.split('-')[0].trim();
+    if(dashPart) variants.add(dashPart);
+  }
+  return Array.from(variants);
+}
 function bandFromFreq(freq){
   if(!freq) return "";
   const f=parseFloat(freq);
@@ -946,6 +963,7 @@ function buildRows(recs){
     const dxccPrefix = (r.APP_DXKEEPER_DXCCPREFIX || r.PFX || callPrefix || "").toString().trim().toUpperCase();
     const row = { ...r };
     row.CALL = call;
+    row._CALL_VARIANTS = callFilterVariants(call);
     row._DATE_RAW = date_raw;
     row._TIME_RAW = time_raw;
     row.DATE = fmtDate(date_raw);
@@ -1011,7 +1029,13 @@ function rowPassesFilters(row, f){
     const dxccPrefix = (row._DXCC_PREFIX || "").toString().toUpperCase();
     const callPrefix = (row._CALL_PREFIX || "").toString().toUpperCase();
     const callFull = (row.CALL || "").toString().toUpperCase();
-    const match = f.dxcc.has(dxccNumStr) || (dxccName && f.dxcc.has(dxccName)) || (dxccPrefix && f.dxcc.has(dxccPrefix)) || (callPrefix && f.dxcc.has(callPrefix)) || (callFull && f.dxcc.has(callFull));
+    const callVariants = Array.isArray(row._CALL_VARIANTS) ? row._CALL_VARIANTS : callFilterVariants(row.CALL);
+    const match = f.dxcc.has(dxccNumStr)
+      || (dxccName && f.dxcc.has(dxccName))
+      || (dxccPrefix && f.dxcc.has(dxccPrefix))
+      || (callPrefix && f.dxcc.has(callPrefix))
+      || (callFull && f.dxcc.has(callFull))
+      || callVariants.some(v => f.dxcc.has(v));
     if(!match) return false;
   }
   if(f.qslStatus && f.qslStatus!=="ALL"){
