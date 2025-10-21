@@ -241,6 +241,13 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
               <option value="OLDEST">Keep oldest</option>
             </select>
           </div>
+          <div class="row">
+            <label>After export include</label>
+            <select id="exportScope">
+              <option value="ALL">all ADIF QSOs</option>
+              <option value="FILTERED" selected>only filtered QSOs</option>
+            </select>
+          </div>
           <p class="help">Filters apply live to preview & PDF.</p>
         </div>
       </div>
@@ -608,10 +615,10 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
         ADIF.</p>
         <div class="download-buttons">
           <button id="downloadBtn" class="primary" disabled>Download PDF</button>
-          <div class="tooltip download-tooltip" data-tooltip="Adds QSL_SENT=Y and QSL_SENT_VIA=B to the QSOs currently shown.">
+          <div class="tooltip download-tooltip" data-tooltip="Adds QSL_SENT=Y and QSL_SENT_VIA=B to the QSOs you export.">
             <button id="downloadAdifBtn" disabled aria-describedby="downloadAdifHelp">Export ADIF</button>
           </div>
-          <span id="downloadAdifHelp" class="sr-only">Adds QSL_SENT=Y and QSL_SENT_VIA=B to the QSOs currently shown.</span>
+          <span id="downloadAdifHelp" class="sr-only">Adds QSL_SENT=Y and QSL_SENT_VIA=B to the QSOs you export.</span>
         </div>
         <!-- <p class="help">ADIF export updates each QSO with <code>&lt;QSL_SENT:1&gt;Y</code> and
         <code>&lt;QSL_SENT_VIA:1&gt;B</code> to mark sent via
@@ -629,7 +636,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
-        <div class="version">Version v4.14</div>
+        <div class="version">Version v4.16</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C</div>
       </div>
@@ -1272,6 +1279,8 @@ function readConfig(){
   const sortMode = SORT_MODES.includes(rawSort) ? rawSort : 'CALL';
   const dedupeRaw = (document.getElementById('fDedupe')?.value || 'OFF').toUpperCase();
   const dedupeMode = (dedupeRaw === 'NEWEST' || dedupeRaw === 'OLDEST') ? dedupeRaw : 'OFF';
+  const exportScopeRaw = (document.getElementById('exportScope')?.value || 'FILTERED').toUpperCase();
+  const exportScope = exportScopeRaw === 'ALL' ? 'ALL' : 'FILTERED';
   const dims=pageDims(pm);
   const pageWmm = (mode==='qslCard') ? cardWidth : dims.w;
   const pageHmm = (mode==='qslCard') ? cardHeight : dims.h;
@@ -1329,6 +1338,7 @@ function readConfig(){
     cardLabelYmm:cardLabelY,
     cardLabelRotationDeg:cardLabelRotation,
     dedupeMode,
+    exportScope,
     f:{
       from: parseYMD(document.getElementById('fDateFrom').value || ""),
       to:   parseYMD(document.getElementById('fDateTo').value || ""),
@@ -1336,8 +1346,8 @@ function readConfig(){
       modes: new Set(parseCSVstrings(document.getElementById('fModes').value)),
       dxcc:  new Set(parseCSVstrings(document.getElementById('fDxcc').value)),
       qslField: document.getElementById('fQslField').value || "ANY",
-    qslStatus: document.getElementById('fQslStatus').value || "ALL",
-    dedupeMode
+      qslStatus: document.getElementById('fQslStatus').value || "ALL",
+      dedupeMode
     }
   };
   cfg.themeName = currentThemeName || 'paper';
@@ -1699,8 +1709,10 @@ async function downloadPDF() {
 
 function downloadUpdatedAdif(){
     const cfg = readConfig();
+    const exportScope = (cfg.exportScope || 'FILTERED').toUpperCase();
+    const exportFilteredOnly = exportScope !== 'ALL';
     const filtered = applyFilters(rows, cfg.f, cfg.dedupeMode);
-    if (!filtered.length) {
+    if (!filtered.length && exportFilteredOnly) {
         alert("No QSOs match the current filters.");
         return;
     }
@@ -1710,7 +1722,7 @@ function downloadUpdatedAdif(){
             indexSet.add(row.__recIndex);
         }
     });
-    if (!indexSet.size) {
+    if (filtered.length && !indexSet.size) {
         alert("Unable to map filtered QSOs back to the original ADIF records.");
         return;
     }
@@ -1720,12 +1732,19 @@ function downloadUpdatedAdif(){
     const updatedRecords = [];
     for (let i = 0; i < recs.length; i++) {
         const base = recordSource[i] ?? serializeRecordFromObject(recs[i]);
+        if (exportFilteredOnly && !indexSet.has(i)) {
+            continue;
+        }
         const recordBody = indexSet.has(i) ? ensureQslFields(base) : base;
         updatedRecords.push(recordBody.trim());
     }
+    if (!updatedRecords.length) {
+        alert("Nothing to export with the current settings.");
+        return;
+    }
     const headerLine = (originalAdifHeader && originalAdifHeader.trim().length)
         ? originalAdifHeader.trimEnd()
-        : "Generated by QSL Labels v3.03";
+        : "Generated by QSL Labels v4.16";
     let output = "";
     if (headerLine) {
         output += headerLine + "\n";
@@ -1781,37 +1800,51 @@ function syncColArraysToDefaults(){ document.getElementById('minColMM').value="1
 function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
 
 /* ===== Sample data ===== */
-function generateSampleRows(nLabels = 10, maxRowsPerLabel = 4) {
-    const calls = ["9A3ST", "K1ABC", "G4XYZ", "DL1AAA", "EA7ZZ", "I2QSL", "F5HAM", "OH2FIN", "JA1DX", "VK2CQ", "ZS6RAD", "LU5HAM"];
-    const modes = ["CW", "SSB", "FT8", "FT4", "RTTY"];
-    const bands = ["20M", "40M", "30M", "15M", "10M", "17M", "12M", "6M"];
+function generateSampleRows(nLabels = 50, maxRowsPerLabel = 4) {
+    const calls = [
+        "9A3ST", "AA7PR", "CT1EAT", "DL1AAA", "EA7ZZ", "F5IN", "G0KSC", "HB9CVQ", "I2QSL", "JA1DX", "K3LR", "K4BAI",
+        "K9CT", "LA2XPA", "LU5HAM", "LY4ZZ", "M0OXO", "N0AX", "OH2FIN", "ON4UN", "PA7LIM", "PY2KNK", "S50A", "SM5SRR",
+        "SV3DCX", "TF3Y", "UA9BA", "VA3MW", "VK2CQ", "VU2NKS", "W1AW", "W3LPL", "W6NL", "XE2X", "YB0ANN", "YO9HP",
+        "ZS6RAD", "ZS6Y", "ZR1ADI", "HB9CZF", "JA3USA", "OE3KAB", "OK2ZAW", "OM7KW", "OZ0J", "RA3CO", "SP7IDX", "SV1JG",
+        "TA7OM", "UR5AS", "VE7CC", "VK9DX", "YU1XA", "ZL3IO"
+    ];
+    const modes = ["CW", "SSB", "FT8", "FT4", "RTTY", "PSK31", "JS8", "AM", "FM"];
+    const bands = ["160M", "80M", "60M", "40M", "30M", "20M", "17M", "15M", "12M", "10M", "6M", "2M"];
     const today = new Date();
     const pad = n => String(n).padStart(2, "0");
-    const records = []; // Use a new array for clarity
+    const records = [];
+    const callCounts = new Map();
+    const maxPerCall = 6;
     for (let i = 0; i < nLabels; i++) {
-        const call = calls[i % calls.length];
+        const availableCalls = calls.filter(c => (callCounts.get(c) || 0) < maxPerCall);
+        if (!availableCalls.length) {
+            break;
+        }
+        const call = availableCalls[Math.floor(Math.random() * availableCalls.length)];
         const rCount = Math.max(1, Math.floor(Math.random() * maxRowsPerLabel) + 1);
-        for (let r = 0; r < rCount; r++) {
-            const d = new Date(today.getTime() - (i * 3 + r) * 86400000);
+        const remainingForCall = maxPerCall - (callCounts.get(call) || 0);
+        const rowsForCall = Math.min(rCount, remainingForCall);
+        for (let r = 0; r < rowsForCall; r++) {
+            const randomDays = Math.floor(Math.random() * 730); // ~2 years span
+            const d = new Date(today.getTime() - randomDays * 86400000);
             const date = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
-            const time = `${pad(12 + ((i + r) % 10))}${pad((i * 7 + r * 13) % 60)}`;
-            
-            // FIX: Generate raw fields like a real ADIF record, instead of pre-formatted ones.
+            const time = `${pad(Math.floor(Math.random() * 24))}${pad(Math.floor(Math.random() * 60))}`;
             records.push({
                 CALL: call,
                 QSO_DATE: date,
                 TIME_ON: time,
-                BAND: bands[(i + r) % bands.length],
-                MODE: modes[(i + r) % modes.length],
+                BAND: bands[Math.floor(Math.random() * bands.length)],
+                MODE: modes[Math.floor(Math.random() * modes.length)],
                 // The 'QSL' field will be derived automatically by buildRows
             });
+            callCounts.set(call, (callCounts.get(call) || 0) + 1);
         }
     }
     return records;
 }
 function loadSample(){
   const maxRows=+(document.getElementById('rowsPerLabel').value)||4;
-  recs = generateSampleRows(10, maxRows); // Store raw data in recs
+  recs = generateSampleRows(50, maxRows); // Store raw data in recs
   originalAdifHeader = "Generated by QSL Labels sample";
   originalAdifHasHeader = true;
   originalAdifRecords = recs.map(rec=>serializeRecordFromObject(rec));
@@ -2007,6 +2040,10 @@ function applyConfigToUI(cfg){
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
   if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
   if(cfg.f && cfg.f.dxcc) document.getElementById('fDxcc').value = Array.from(cfg.f.dxcc).join(',');
+  if(cfg.exportScope){
+    const normalizedScope = String(cfg.exportScope).toUpperCase();
+    document.getElementById('exportScope').value = normalizedScope === 'ALL' ? 'ALL' : 'FILTERED';
+  }
   if(cfg.themeName){ applyTheme(cfg.themeName, false); }
   else if(currentThemeName){ applyTheme(currentThemeName, false); }
   document.querySelectorAll('.mode-option').forEach(btn=>{
