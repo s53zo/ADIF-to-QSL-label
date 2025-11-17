@@ -446,6 +446,13 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
               <div class="row"><label>Right footer text</label><input id="footerR" type="text" value="TNX & 73"></div>
               <div class="row"><label>Right footer shift (mm)</label><input id="footerRShift" type="number" step="0.5" value="5"></div>
               <div class="row"><label>Footer Y shift (mm)</label><input id="footerYShift" type="number" step="0.5" value="2"></div>
+              <div class="row">
+                <label>Use QSL manager (QSL_VIA)</label>
+                <select id="useQslVia">
+                  <option value="0" selected>No</option>
+                  <option value="1">Yes</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -553,6 +560,8 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
               </div>
               <div class="row"><label>To Radio (pt)</label><input id="sizeToRadio" type="number" step="0.5" value="7.5"></div>
               <div class="row"><label>Callsign (pt)</label><input id="sizeCallsign" type="number" step="0.5" value="14"></div>
+              <div class="row"><label>"via" label (pt)</label><input id="sizeViaLabel" type="number" step="0.5" value="8"></div>
+              <div class="row"><label>QSL manager (pt)</label><input id="sizeViaManager" type="number" step="0.5" value="14"></div>
               <div class="row"><label>Headers (pt)</label><input id="sizeHeaders" type="number" step="0.5" value="7.2"></div>
               <div class="row"><label>Rows (pt)</label><input id="sizeRows" type="number" step="0.5" value="8.2"></div>
               <div class="row"><label>Footer (pt)</label><input id="sizeFooter" type="number" step="0.5" value="7.2"></div>
@@ -636,9 +645,9 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
-        <div class="version">Version v4.16</div>
+        <div class="version">Version v4.17</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
-        <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C</div>
+        <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP</div>
       </div>
     </div>
   </aside>
@@ -946,6 +955,105 @@ function bandFromFreq(freq){
 }
 function normMode(mode,submode){ mode=(mode||"").toUpperCase().trim(); submode=(submode||"").toUpperCase().trim(); if(submode) return submode; if(mode==="USB"||mode==="LSB") return "SSB"; return mode; }
 function qslValue(rec){ for(const k of ["QSL_RCVD","LOTW_QSL_RCVD","EQSL_QSL_RCVD"]){ if((rec[k]||"").toUpperCase()==="Y") return "TNX"; } return "PSE"; }
+function findQslVia(rows){
+  if(!Array.isArray(rows)) return "";
+  for(const row of rows){
+    if(!row) continue;
+    const via = row.QSL_VIA || row.QSLVia || row.qsl_via;
+    if(typeof via === 'string' && via.trim()){
+      return via.trim().toUpperCase();
+    }
+  }
+  return "";
+}
+function buildCallSegments(call, rows, cfg){
+  const base = (call || "").toUpperCase();
+  if(!base) return [];
+  const bodyFont = cfg?.fontBody || "Helvetica, Arial, sans-serif";
+  const viaLabelSize = Number.isFinite(cfg?.sizeViaLabel) ? cfg.sizeViaLabel : 8;
+  const viaManagerSize = Number.isFinite(cfg?.sizeViaManager) ? cfg.sizeViaManager : 14;
+  const callSize = Number.isFinite(cfg?.sizeCallsign) ? cfg.sizeCallsign : 14;
+  const via = (cfg && cfg.useQslVia) ? findQslVia(rows) : "";
+  const callIsNormal = Boolean(via);
+  const managerIsBold = Boolean(via);
+  const callWeight = callIsNormal ? "" : "bold ";
+  const callPdfStyle = callIsNormal ? "normal" : "bold";
+  const segments=[{
+    text: base,
+    canvasFont: `${callWeight}${callSize}px ${bodyFont}`,
+    pdfFont: { family:"helvetica", style:callPdfStyle, size:callSize }
+  }];
+  if(via){
+    const managerWeight = managerIsBold ? "bold " : "";
+    const managerPdfStyle = managerIsBold ? "bold" : "normal";
+    segments.push({
+      text:" via ",
+      canvasFont: `${viaLabelSize}px ${bodyFont}`,
+      pdfFont:{ family:"helvetica", style:"normal", size:viaLabelSize }
+    });
+    segments.push({
+      text:via,
+      canvasFont: `${managerWeight}${viaManagerSize}px ${bodyFont}`,
+      pdfFont:{ family:"helvetica", style:managerPdfStyle, size:viaManagerSize }
+    });
+  }
+  return segments;
+}
+function measureCanvasSegments(ctx, segments){
+  const widths=[]; let total=0;
+  segments.forEach(seg=>{
+    ctx.font = seg.canvasFont;
+    const text = String(seg.text ?? "");
+    const w = ctx.measureText(text).width;
+    widths.push(w);
+    total += w;
+  });
+  return { total, widths };
+}
+function drawCallSegmentsCanvas(ctx, segments, x, y, align){
+  if(!segments || !segments.length) return;
+  const { total, widths } = measureCanvasSegments(ctx, segments);
+  let cursor=x;
+  if(align==="center"){ cursor -= total/2; }
+  else if(align==="right"){ cursor -= total; }
+  segments.forEach((seg, idx)=>{
+    ctx.font = seg.canvasFont;
+    ctx.fillText(seg.text || "", cursor, y);
+    cursor += widths[idx];
+  });
+}
+function measurePdfSegments(doc, segments){
+  const widths=[]; let total=0;
+  segments.forEach(seg=>{
+    const font=seg.pdfFont||{};
+    doc.setFont(font.family||"helvetica", font.style||"normal");
+    doc.setFontSize(font.size ?? 10);
+    const text=String(seg.text ?? "");
+    const w=doc.getTextWidth(text);
+    widths.push(w);
+    total+=w;
+  });
+  return { total, widths };
+}
+function drawCallSegmentsPdf(doc, segments, x_mm, y_mm, align, rotation){
+  if(!segments || !segments.length) return;
+  const { total, widths } = measurePdfSegments(doc, segments);
+  let cursor=x_mm;
+  if(align==="center"){ cursor -= total/2; }
+  else if(align==="right"){ cursor -= total; }
+  segments.forEach((seg, idx)=>{
+    const font=seg.pdfFont||{};
+    doc.setFont(font.family||"helvetica", font.style||"normal");
+    doc.setFontSize(font.size ?? 10);
+    const text=String(seg.text ?? "");
+    if(rotation){
+      doc.text(text, cursor, y_mm, { angle: rotation });
+    }else{
+      doc.text(text, cursor, y_mm);
+    }
+    cursor += widths[idx];
+  });
+}
 
 /* ===== Rows & filters ===== */
 function buildRows(recs){
@@ -1311,6 +1419,7 @@ function readConfig(){
     footerR:document.getElementById('footerR').value,
     footerRShiftmm:parseFloat(document.getElementById('footerRShift').value||"5"),
     footerYShiftmm:parseFloat(document.getElementById('footerYShift').value||"2"),
+    useQslVia:document.getElementById('useQslVia').value==="1",
     rowsPerLabel:+(document.getElementById('rowsPerLabel').value||4),
     dynamicCols:document.getElementById('dynamicCols').value==="1",
     shrinkOnly:document.getElementById('shrinkOnly').value==="1",
@@ -1326,6 +1435,8 @@ function readConfig(){
     freqDecimals: freqDecimalsVal,
     sizeToRadio:parseFloat(document.getElementById('sizeToRadio').value||"7.5"),
     sizeCallsign:parseFloat(document.getElementById('sizeCallsign').value||"14"),
+    sizeViaLabel:parseFloat(document.getElementById('sizeViaLabel').value||"8"),
+    sizeViaManager:parseFloat(document.getElementById('sizeViaManager').value||"14"),
     sizeHeaders:parseFloat(document.getElementById('sizeHeaders').value||"7.2"),
     sizeRows:parseFloat(document.getElementById('sizeRows').value||"8.2"),
     sizeFooter:parseFloat(document.getElementById('sizeFooter').value||"7.2"),
@@ -1450,11 +1561,11 @@ function renderOnePage(cfg, pageIdx){
     const L = cfg.layout; 
     ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
     ctx.fillText("To Radio", x0 + mm2pt(L.toRadio.x_mm), y0 + mm2pt(L.toRadio.y_mm));
-    ctx.font=`bold ${cfg.sizeCallsign}px ${cfg.fontBody}`;
-    ctx.textAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
-    const callXpt = (L.callsign.centerX && !document.getElementById('unlockCallX').checked)
+    const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
+    const callXpt = (callAlign === "center")
       ? (x0 + labelWpt/2) : (x0 + mm2pt(L.callsign.x_mm ?? cfg.padXmm));
-    ctx.fillText((call||"").toUpperCase(), callXpt, y0 + mm2pt(L.callsign.y_mm));
+    const callSegments = buildCallSegments(call, chunk, cfg);
+    drawCallSegmentsCanvas(ctx, callSegments, callXpt, y0 + mm2pt(L.callsign.y_mm), callAlign);
     ctx.textAlign="left";
     ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
     let cx=x0; const headersY=y0 + mm2pt(L.headers.y_mm);
@@ -1667,7 +1778,8 @@ async function downloadPDF() {
             const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
             const callLocalX = (callAlign === "center") ? (labelW_mm / 2) : (L.callsign.x_mm ?? padX_mm);
             const callPos = toPage(callLocalX, L.callsign.y_mm);
-            pdfText(String(call || "").toUpperCase(), callPos.x, callPos.y, callAlign, "helvetica", "bold", cfg.sizeCallsign, rotation);
+            const callSegments = buildCallSegments(call, chunk, cfg);
+            drawCallSegmentsPdf(doc, callSegments, callPos.x, callPos.y, callAlign, rotation);
             let colAccumPt = 0;
             for (let i = 0; i < cfg.columns.length; i++) {
                 const headerLocalX = pt2mm(colAccumPt) + padX_mm;
@@ -1893,11 +2005,11 @@ function renderEditor(){
   ctx.fillStyle="#000";
   ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
   ctx.fillText("To Radio", mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm));
-  ctx.font=`bold ${cfg.sizeCallsign}px ${cfg.fontBody}`;
   const callXpt = (L.callsign.centerX && !document.getElementById('unlockCallX').checked)
     ? (mm2pt(labelW_mm)/2) : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
-  ctx.textAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
-  ctx.fillText("SAMPLECALL", callXpt, mm2pt(L.callsign.y_mm));
+  const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
+  const sampleChunk = cfg.useQslVia ? [{ QSL_VIA: "SAMPLE" }] : [];
+  drawCallSegmentsCanvas(ctx, buildCallSegments("SAMPLECALL", sampleChunk, cfg), callXpt, mm2pt(L.callsign.y_mm), callAlign);
   ctx.textAlign="left";
   ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
   ctx.fillText("Date   Time   Band   Mode   QSL", mm2pt(cfg.padXmm), mm2pt(L.headers.y_mm));
@@ -2007,7 +2119,8 @@ function applyConfigToUI(cfg){
   const map={ pageSize:'pageSize', cols:'cols', rows:'rows', labelHmm:'labelH', marginLmm:'marginL', marginRmm:'marginR', marginTmm:'marginT',
     xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', footerL:'footerL', footerR:'footerR',
     footerRShiftmm:'footerRShift', footerYShiftmm:'footerYShift', rowsPerLabel:'rowsPerLabel', colSlackPt:'slackPt',
-    lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
+    lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeViaLabel:'sizeViaLabel', sizeViaManager:'sizeViaManager',
+    sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
     startRow:'startRow', startCol:'startCol', sortMode:'sortMode', dedupeMode:'fDedupe'
   };
   if(cfg.sortMode){
@@ -2056,6 +2169,8 @@ function applyConfigToUI(cfg){
   if(cfg.cardLabelXmm!==undefined) document.getElementById('cardLabelX').value = cfg.cardLabelXmm;
   if(cfg.cardLabelYmm!==undefined) document.getElementById('cardLabelY').value = cfg.cardLabelYmm;
   if(cfg.cardLabelRotationDeg!==undefined) document.getElementById('cardLabelRotation').value = cfg.cardLabelRotationDeg;
+  const useViaEl=document.getElementById('useQslVia');
+  if(useViaEl){ useViaEl.value = cfg.useQslVia ? "1" : "0"; }
   updateModeVisibility();
 }
 function initCollapsibles(){
