@@ -727,7 +727,23 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script>
+  window.__loadLocalJsPDF = function(){
+    if(window.__localJsPdfRequested) return;
+    window.__localJsPdfRequested = true;
+    const fallback=document.createElement('script');
+    fallback.src='vendor/jspdf.umd.min.js';
+    fallback.defer=true;
+    fallback.dataset.source='local-jspdf';
+    document.head.appendChild(fallback);
+  };
+  window.addEventListener('DOMContentLoaded', function(){
+    if(!window.jspdf && window.__loadLocalJsPDF){
+      window.__loadLocalJsPDF();
+    }
+  });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" onerror="window.__loadLocalJsPDF && window.__loadLocalJsPDF()"></script>
 
 <script>
 /***** IMPORTANT: JavaScript logic kept IDENTICAL to preserve functionality. *****/
