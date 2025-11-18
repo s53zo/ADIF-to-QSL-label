@@ -85,7 +85,50 @@ button{border-radius:10px; padding:10px 14px; font-size:14px; border:1px solid v
 button:hover{background:var(--accent); color:white; border-color:var(--accent)}
 button.primary{background:var(--accent); color:white; border-color:var(--accent)}
 button.primary:hover{background:#1d4ed8}
+button.secondary{background:var(--panel-2); color:var(--ink); border-color:var(--border)}
+button.secondary:hover{background:var(--accent-2); color:#fff; border-color:var(--accent-2)}
 button:disabled{cursor:not-allowed; opacity:0.65}
+.row.qsl-filter-row{display:flex; flex-direction:column; gap:12px}
+.row.qsl-filter-row>label{font-weight:600; color:var(--ink)}
+.qsl-rule-builder{border:1px solid var(--border); border-radius:14px; padding:14px; background:var(--panel-2); display:flex; flex-direction:column; gap:14px; box-shadow:var(--shadow)}
+.qsl-rule-list{display:flex; flex-direction:column; gap:10px}
+.qsl-rule-row{
+  display:grid;
+  grid-template-columns:minmax(60px,80px) 1fr;
+  grid-template-areas:
+    "join field"
+    "operator operator"
+    "value value"
+    "remove remove";
+  gap:10px 14px;
+  align-items:stretch;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel);
+  width:100%;
+  box-sizing:border-box;
+}
+.qsl-rule-row select,.qsl-rule-row input{width:100%; min-width:0}
+.qsl-rule-cell{display:flex; flex-direction:column; gap:4px; width:100%}
+.qsl-rule-cell::before{
+  content:attr(data-label);
+  font-size:10px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.qsl-rule-cell-join{grid-area:join; align-self:center}
+.qsl-rule-cell-field{grid-area:field}
+.qsl-rule-cell-operator{grid-area:operator}
+.qsl-rule-cell-value{grid-area:value}
+.qsl-rule-cell-remove{grid-area:remove; align-items:flex-end}
+.qsl-rule-cell-remove::before{display:none}
+.qsl-rule-row-first .qsl-rule-cell-join{display:none}
+.qsl-rule-remove{border:none; background:transparent; color:var(--muted); font-size:20px; line-height:1; padding:4px 6px; border-radius:999px; cursor:pointer}
+.qsl-rule-remove:hover{background:rgba(56,189,248,0.2); color:var(--ink)}
+.qsl-rule-empty{font-size:12px; color:var(--muted); padding:10px; border:1px dashed var(--border); border-radius:10px; text-align:center}
+.qsl-rule-actions{display:flex; justify-content:flex-end}
 .tooltip{position:relative; display:block}
 .tooltip::after{content:attr(data-tooltip); position:absolute; left:50%; bottom:calc(100% + 6px); transform:translate(-55%, 6px); background:var(--panel); border:1px solid var(--border); box-shadow:var(--shadow); color:var(--ink); padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3; white-space:normal; width:max-content; max-width:260px; opacity:0; pointer-events:none; transition:opacity .1s ease, transform .1s ease; z-index:10}
 .tooltip::before{content:""; position:absolute; left:50%; bottom:calc(100% + 2px); transform:translate(-55%, 4px) rotate(45deg); width:10px; height:10px; background:var(--panel); border-left:1px solid var(--border); border-top:1px solid var(--border); box-shadow:var(--shadow); opacity:0; transition:opacity .1s ease, transform .1s ease; z-index:9; transform-origin:center}
@@ -213,26 +256,26 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
           <div class="row"><label>Bands (CSV)</label><input id="fBands" type="text" placeholder="e.g. 20M,40M"></div>
           <div class="row"><label>Modes (CSV)</label><input id="fModes" type="text" placeholder="e.g. CW,SSB,FT8"></div>
           <div class="row"><label>DXCC / Prefix / Callsign (CSV)</label><input id="fDxcc" type="text" placeholder="e.g. JA, DL, S53ZO"></div>
-          <div class="row">
-            <label>QSL status field</label>
-            <select id="fQslField">
-              <option value="ANY" selected>Any received field (QSL_RCVD, LOTW_QSL_RCVD, EQSL_QSL_RCVD)</option>
-              <option value="QSL_RCVD">Paper card received (QSL_RCVD)</option>
-              <option value="LOTW_QSL_RCVD">LoTW confirmation (LOTW_QSL_RCVD)</option>
-              <option value="EQSL_QSL_RCVD">eQSL confirmation (EQSL_QSL_RCVD)</option>
-              <option value="QSL_SENT">Sent status (QSL_SENT)</option>
-            </select>
+          <div class="row qsl-filter-row">
+            <label>QSL status filters</label>
+            <div class="qsl-rule-builder">
+              <div id="qslRuleList" class="qsl-rule-list" role="list"></div>
+              <div id="qslRuleEmpty" class="qsl-rule-empty">No QSL filters applied.</div>
+              <div class="qsl-rule-actions">
+                <button type="button" id="addQslRule" class="secondary">Add QSL rule</button>
+              </div>
+              <p class="help">Mix paper, LoTW, and eQSL statuses with AND/OR joins on each rule. Example: “QSL_RCVD is Y” AND “QSL_SENT is blank or N”.</p>
+            </div>
           </div>
-          <div class="row">
-            <label>QSL status filter</label>
-            <select id="fQslStatus">
-              <option value="ALL" selected>Show all statuses</option>
-              <option value="Y">Value is Y (confirmed / sent)</option>
-              <option value="N">Value is N (requested / needed)</option>
-              <option value="NONE">Blank or N (no positive log)</option>
-              <option value="I">Value is I (ignore)</option>
-            </select>
-          </div>
+          <datalist id="qslStatusSuggestions">
+            <option value="Y">
+            <option value="N">
+            <option value="R">
+            <option value="Q">
+            <option value="I">
+            <option value="E">
+            <option value="V">
+          </datalist>
           <div class="row">
             <label>Duplicates</label>
             <select id="fDedupe">
@@ -648,7 +691,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
-        <div class="version">Version v4.20</div>
+        <div class="version">Version v5.04</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP</div>
       </div>
@@ -761,6 +804,208 @@ function parseCSVfloats(s) {
     });
 }
 function parseCSVstrings(s){ if(!s) return []; return s.split(",").map(x=>x.trim().toUpperCase()).filter(Boolean); }
+const QSL_RULE_FIELDS = [
+  { value:"QSL_RCVD", label:"Paper received (QSL_RCVD)" },
+  { value:"LOTW_QSL_RCVD", label:"LoTW received (LOTW_QSL_RCVD)" },
+  { value:"EQSL_QSL_RCVD", label:"eQSL received (EQSL_QSL_RCVD)" },
+  { value:"QSL_SENT", label:"Paper sent (QSL_SENT)" },
+  { value:"LOTW_QSL_SENT", label:"LoTW sent (LOTW_QSL_SENT)" },
+  { value:"EQSL_QSL_SENT", label:"eQSL sent (EQSL_QSL_SENT)" },
+  { value:"ANY_RECEIVED", label:"Any received status (paper/LoTW/eQSL)" },
+  { value:"ANY_SENT", label:"Any sent status (paper/LoTW/eQSL)" },
+];
+const QSL_RULE_OPERATORS = [
+  { value:"EQ", label:"is" },
+  { value:"NE", label:"is not" },
+  { value:"BLANK", label:"is blank" },
+  { value:"NOT_BLANK", label:"is not blank" },
+  { value:"BLANK_OR_N", label:"is blank or N (needed)" },
+];
+const QSL_VALUELESS_OPERATORS = new Set(["BLANK","NOT_BLANK","BLANK_OR_N"]);
+const QSL_FIELD_GROUPS = {
+  ANY_RECEIVED:["QSL_RCVD","LOTW_QSL_RCVD","EQSL_QSL_RCVD"],
+  ANY_SENT:["QSL_SENT","LOTW_QSL_SENT","EQSL_QSL_SENT"],
+};
+function normalizeQslRuleJoin(join){ return (String(join||"").toUpperCase()==="OR") ? "OR" : "AND"; }
+const qslRuleRecompute = debounce(()=>recompute(),120);
+function qslRuleNeedsValue(op){ return !QSL_VALUELESS_OPERATORS.has((op||"").toUpperCase()); }
+function qslRuleListEl(){ return document.getElementById('qslRuleList'); }
+function updateQslRuleEmptyState(){
+  const emptyEl=document.getElementById('qslRuleEmpty');
+  const list=qslRuleListEl();
+  if(!emptyEl || !list) return;
+  const hasRows=Boolean(list.querySelector('.qsl-rule-row'));
+  emptyEl.style.display = hasRows ? "none" : "block";
+}
+function refreshQslRuleJoinStates(){
+  const list=qslRuleListEl();
+  if(!list) return;
+  list.querySelectorAll('.qsl-rule-row').forEach((row,index)=>{
+    const joinSel=row.querySelector('.qsl-rule-join');
+    const isFirst=index===0;
+    row.classList.toggle('qsl-rule-row-first', isFirst);
+    if(joinSel){
+      joinSel.disabled = isFirst;
+      if(isFirst){ joinSel.value = "AND"; }
+    }
+  });
+}
+function createQslRuleRow(rule){
+  const row=document.createElement('div');
+  row.className='qsl-rule-row';
+  row.setAttribute('role','listitem');
+  function makeCell(label, className, control){
+    const wrap=document.createElement('div');
+    wrap.className=`qsl-rule-cell ${className||''}`.trim();
+    if(label){ wrap.dataset.label=label; }
+    if(control){ wrap.appendChild(control); }
+    return wrap;
+  }
+  const joinSelect=document.createElement('select');
+  joinSelect.className='qsl-rule-join';
+  joinSelect.setAttribute('aria-label','Join with previous rule');
+  ["AND","OR"].forEach(val=>{
+    const opt=document.createElement('option');
+    opt.value=val;
+    opt.textContent=val;
+    joinSelect.appendChild(opt);
+  });
+  joinSelect.value = normalizeQslRuleJoin(rule?.join);
+  const fieldSelect=document.createElement('select');
+  fieldSelect.className='qsl-rule-field';
+  QSL_RULE_FIELDS.forEach(desc=>{
+    const opt=document.createElement('option');
+    opt.value=desc.value;
+    opt.textContent=desc.label;
+    fieldSelect.appendChild(opt);
+  });
+  const desiredField=(rule?.field||QSL_RULE_FIELDS[0].value).toUpperCase();
+  fieldSelect.value = QSL_RULE_FIELDS.some(desc=>desc.value===desiredField) ? desiredField : QSL_RULE_FIELDS[0].value;
+
+  const opSelect=document.createElement('select');
+  opSelect.className='qsl-rule-operator';
+  QSL_RULE_OPERATORS.forEach(desc=>{
+    const opt=document.createElement('option');
+    opt.value=desc.value;
+    opt.textContent=desc.label;
+    opSelect.appendChild(opt);
+  });
+  const desiredOp=(rule?.op||"EQ").toUpperCase();
+  opSelect.value = QSL_RULE_OPERATORS.some(desc=>desc.value===desiredOp) ? desiredOp : "EQ";
+
+  const valueInput=document.createElement('input');
+  valueInput.type='text';
+  valueInput.placeholder='select value';
+  valueInput.className='qsl-rule-value';
+  valueInput.value = rule?.value || "";
+  valueInput.setAttribute('list','qslStatusSuggestions');
+
+  const removeBtn=document.createElement('button');
+  removeBtn.type='button';
+  removeBtn.className='qsl-rule-remove';
+  removeBtn.setAttribute('aria-label','Remove rule');
+  removeBtn.textContent='×';
+
+  function syncValueState(){
+    const needsValue=qslRuleNeedsValue(opSelect.value);
+    valueInput.disabled = !needsValue;
+  }
+  syncValueState();
+
+  const handleChange=()=>{ qslRuleRecompute(); };
+  joinSelect.addEventListener('change', handleChange);
+  fieldSelect.addEventListener('change', handleChange);
+  opSelect.addEventListener('change', ()=>{ syncValueState(); handleChange(); });
+  valueInput.addEventListener('input', handleChange);
+  removeBtn.addEventListener('click', ()=>{
+    row.remove();
+    updateQslRuleEmptyState();
+    refreshQslRuleJoinStates();
+    handleChange();
+  });
+
+  row.appendChild(makeCell('Join', 'qsl-rule-cell-join', joinSelect));
+  row.appendChild(makeCell('Field', 'qsl-rule-cell-field', fieldSelect));
+  row.appendChild(makeCell('Operator', 'qsl-rule-cell-operator', opSelect));
+  row.appendChild(makeCell('Value', 'qsl-rule-cell-value', valueInput));
+  const removeCell=makeCell('', 'qsl-rule-cell-remove', removeBtn);
+  row.appendChild(removeCell);
+  return row;
+}
+function addQslRuleRow(rule){
+  const list=qslRuleListEl();
+  if(!list) return null;
+  const row=createQslRuleRow(rule || { field:"QSL_RCVD", op:"EQ", value:"" });
+  list.appendChild(row);
+  updateQslRuleEmptyState();
+  refreshQslRuleJoinStates();
+  return row;
+}
+function clearQslRuleRows(){
+  const list=qslRuleListEl();
+  if(!list) return;
+  list.innerHTML="";
+  updateQslRuleEmptyState();
+  refreshQslRuleJoinStates();
+}
+function normalizeQslRuleConfig(data){
+  if(!data) return [];
+  const rawRules = Array.isArray(data.rules) ? data.rules : [];
+  const legacyLogic = (data.logic === 'OR') ? 'OR' : 'AND';
+  return rawRules.map((rule, index)=>{
+    const joinSource = (rule && rule.join!=null) ? rule.join : (index===0 ? 'AND' : legacyLogic);
+    return {
+      join: normalizeQslRuleJoin(joinSource),
+      field: rule?.field,
+      op: rule?.op,
+      value: rule?.value
+    };
+  });
+}
+function setQslRulesFromConfig(data){
+  clearQslRuleRows();
+  const list=qslRuleListEl();
+  if(!list) return;
+  const normalized = normalizeQslRuleConfig(data);
+  if(normalized.length){
+    normalized.forEach(rule=> addQslRuleRow(rule));
+  }
+  updateQslRuleEmptyState();
+  refreshQslRuleJoinStates();
+}
+function readQslRulesFromUI(){
+  const list=qslRuleListEl();
+  if(!list){
+    return { rules: [] };
+  }
+  const rules=[];
+  list.querySelectorAll('.qsl-rule-row').forEach(row=>{
+    const joinSel=row.querySelector('.qsl-rule-join');
+    const fieldSel=row.querySelector('.qsl-rule-field');
+    const opSel=row.querySelector('.qsl-rule-operator');
+    const valInput=row.querySelector('.qsl-rule-value');
+    const join = normalizeQslRuleJoin(joinSel?.value);
+    const field=(fieldSel?.value||"").toUpperCase();
+    const op=(opSel?.value||"").toUpperCase();
+    if(!field || !op) return;
+    const needsValue=qslRuleNeedsValue(op);
+    const rawVal = (valInput?.value || "").trim().toUpperCase();
+    if(needsValue && !rawVal) return;
+    rules.push({ join, field, op, value: needsValue ? rawVal : "" });
+  });
+  return { rules };
+}
+function initQslRuleBuilder(){
+  const addBtn=document.getElementById('addQslRule');
+  if(addBtn){
+    addBtn.addEventListener('click', ()=>{
+      addQslRuleRow();
+      qslRuleRecompute();
+    });
+  }
+  updateQslRuleEmptyState();
+  refreshQslRuleJoinStates();
+}
 const THEMES={
   maritime:{ label:"Maritime Midnight", colorScheme:"dark", vars:{ '--bg':'#0b1724','--panel':'#0f1f2f','--panel-2':'#11263a','--ink':'#f0f7ff','--muted':'#8ba9c8','--border':'#1e3a56','--accent':'#2bb4d4','--accent-2':'#fdd384' } },
   dusk:{ label:"Desert Dusk", colorScheme:"light", vars:{ '--bg':'#f6eee6','--panel':'#fff8f1','--panel-2':'#f2dfd0','--ink':'#473327','--muted':'#8c6f5e','--border':'#ead1c0','--accent':'#167287','--accent-2':'#f9a66c' } },
@@ -1151,6 +1396,42 @@ function getQslFieldVal(rec, fieldSel){
   const a=[up(rec.QSL_RCVD),up(rec.LOTW_QSL_RCVD),up(rec.EQSL_QSL_RCVD)];
   return a.find(v=>v==="Y"||v==="N"||v==="I"||v==="R"||v==="V"||v==="E") || (a.find(v=>v)!=="") || "";
 }
+function getQslValuesFromRow(row, field){
+  const normalized=(field||"").toUpperCase();
+  const group=QSL_FIELD_GROUPS[normalized];
+  const keys = group && group.length ? group : [normalized];
+  return keys.map(k=> row ? row[k] || "" : "");
+}
+function normalizeQslValue(val){ return String(val||"").trim().toUpperCase(); }
+function evaluateQslRule(row, rule){
+  if(!rule || !row) return true;
+  const op=(rule.op||"EQ").toUpperCase();
+  const field=(rule.field||"").toUpperCase();
+  if(!field || !op) return true;
+  const values=getQslValuesFromRow(row, field).map(normalizeQslValue);
+  if(op==="EQ"){
+    const target=normalizeQslValue(rule.value);
+    return target ? values.some(v=>v===target) : true;
+  }
+  if(op==="NE"){
+    const target=normalizeQslValue(rule.value);
+    return target ? values.every(v=>v!==target) : true;
+  }
+  if(op==="BLANK"){ return values.every(v=>!v); }
+  if(op==="NOT_BLANK"){ return values.some(v=>!!v); }
+  if(op==="BLANK_OR_N"){ return values.every(v=>!v || v==="N"); }
+  return true;
+}
+function convertLegacyQslFilterToRules(fieldSel, statusSel){
+  const status=(statusSel||"ALL").toUpperCase();
+  if(status==="ALL") return null;
+  const field=(fieldSel||"ANY").toUpperCase();
+  const mappedField = (field==="ANY") ? "ANY_RECEIVED" : field;
+  if(status==="NONE"){
+    return { rules:[{ join:"AND", field:mappedField, op:"BLANK_OR_N", value:"" }] };
+  }
+  return { rules:[{ join:"AND", field:mappedField, op:"EQ", value:status }] };
+}
 function rowPassesFilters(row, f){
   const d=row._DATE_RAW||"";
   if(f.from && (!d || d < f.from)) return false;
@@ -1172,12 +1453,15 @@ function rowPassesFilters(row, f){
       || callVariants.some(v => f.dxcc.has(v));
     if(!match) return false;
   }
-  if(f.qslStatus && f.qslStatus!=="ALL"){
-    const val = getQslFieldVal(row, f.qslField);
-    if(f.qslStatus==="N"){ if(val!=="N") return false; }
-    else if(f.qslStatus==="Y"){ if(val!=="Y") return false; }
-    else if(f.qslStatus==="I"){ if(val!=="I") return false; }
-    else if(f.qslStatus==="NONE"){ if(val && val!=="N") return false; }
+  if(f.qslRules && Array.isArray(f.qslRules.rules) && f.qslRules.rules.length){
+    let aggregate=null;
+    f.qslRules.rules.forEach((rule, index)=>{
+      const ruleResult = evaluateQslRule(row, rule);
+      if(index===0){ aggregate = ruleResult; return; }
+      const join=normalizeQslRuleJoin(rule?.join);
+      aggregate = (join==="OR") ? (aggregate || ruleResult) : (aggregate && ruleResult);
+    });
+    if(!aggregate) return false;
   }
   return true;
 }
@@ -1508,8 +1792,7 @@ function readConfig(){
       bands: new Set(parseCSVstrings(document.getElementById('fBands').value)),
       modes: new Set(parseCSVstrings(document.getElementById('fModes').value)),
       dxcc:  new Set(parseCSVstrings(document.getElementById('fDxcc').value)),
-      qslField: document.getElementById('fQslField').value || "ANY",
-      qslStatus: document.getElementById('fQslStatus').value || "ALL",
+      qslRules: readQslRulesFromUI(),
       dedupeMode
     }
   };
@@ -1923,7 +2206,7 @@ function downloadUpdatedAdif(){
     }
     const headerLine = (originalAdifHeader && originalAdifHeader.trim().length)
         ? originalAdifHeader.trimEnd()
-        : "Generated by QSL Labels v4.16";
+        : "Generated by QSL Labels v5.04";
     let output = "";
     if (headerLine) {
         output += headerLine + "\n";
@@ -2237,6 +2520,17 @@ function applyConfigToUI(cfg){
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
   if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
   if(cfg.f && cfg.f.dxcc) document.getElementById('fDxcc').value = Array.from(cfg.f.dxcc).join(',');
+  if(cfg.f){
+    if(cfg.f.qslRules){
+      setQslRulesFromConfig(cfg.f.qslRules);
+    }else if(cfg.f.qslStatus && cfg.f.qslStatus !== 'ALL'){
+      setQslRulesFromConfig(convertLegacyQslFilterToRules(cfg.f.qslField, cfg.f.qslStatus));
+    }else{
+      setQslRulesFromConfig(null);
+    }
+  }else{
+    setQslRulesFromConfig(null);
+  }
   if(cfg.exportScope){
     const normalizedScope = String(cfg.exportScope).toUpperCase();
     document.getElementById('exportScope').value = normalizedScope === 'ALL' ? 'ALL' : 'FILTERED';
@@ -2290,7 +2584,7 @@ function autoResizeOffsetCSVs(){
 }
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
-    if(["adifFile","downloadBtn","downloadAdifBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat"].includes(el.id)) return;
+    if(["adifFile","downloadBtn","downloadAdifBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat","addQslRule"].includes(el.id)) return;
     if(el.id==='themeSelect') return;
     if(el.classList.contains('section-toggle') || el.classList.contains('mode-option')) return;
     el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
@@ -2444,6 +2738,7 @@ resetDefaultColumns();
 syncColArraysToDefaults();
 initTheme();
 initCollapsibles();
+initQslRuleBuilder();
 bindInputs();
 loadSample();
 </script>
