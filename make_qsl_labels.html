@@ -444,6 +444,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
               <p class="section-hint">Control padding and footer text for each printed label.</p>
               <div class="row"><label>Padding X (mm)</label><input id="padX" type="number" step="0.5" value="2"></div>
               <div class="row"><label>Padding Y (mm)</label><input id="padY" type="number" step="0.5" value="2"></div>
+              <div class="row"><label>"To Radio" text</label><input id="toRadioText" type="text" value="To Radio"></div>
               <div class="row"><label>Left footer text</label><input id="footerL" type="text" value="SY: Blondie, South Adriatic sea"></div>
               <div class="row"><label>Right footer text</label><input id="footerR" type="text" value="TNX & 73"></div>
               <div class="row"><label>Right footer shift (mm)</label><input id="footerRShift" type="number" step="0.5" value="5"></div>
@@ -647,7 +648,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
-        <div class="version">Version v4.19</div>
+        <div class="version">Version v4.20</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP</div>
       </div>
@@ -1331,6 +1332,30 @@ function groupLabels(rows, rowsPerLabel, sortMode){
 /* ===== Column sizing ===== */
 const metricsCanvas=document.createElement('canvas'); metricsCanvas.width=1000; metricsCanvas.height=200;
 const ctx2dForFonts=metricsCanvas.getContext('2d');
+const CALLSIGN_GAP_MM = 1.5;
+function getToRadioLabel(cfg){
+  const raw = (cfg && typeof cfg.toRadioText === "string") ? cfg.toRadioText : "";
+  return raw.length ? raw : "To Radio";
+}
+function measureToRadioWidthMm(cfg){
+  if(!cfg) return 0;
+  const fontFamily = cfg.fontBody || "Helvetica, Arial, sans-serif";
+  ctx2dForFonts.font = `${cfg.sizeToRadio}px ${fontFamily}`;
+  const text = getToRadioLabel(cfg);
+  const metrics = ctx2dForFonts.measureText(text);
+  return pt2mm(metrics.width || 0);
+}
+function computeCallCenterLocalXmm(cfg, layout, labelW_mm, toRadioWidth_mm){
+  if(!cfg || !layout) return 0;
+  const gapMm = CALLSIGN_GAP_MM;
+  const padRightMm = cfg.padXmm ?? 0;
+  const toRadioLeftMm = layout.toRadio?.x_mm ?? padRightMm;
+  const start = toRadioLeftMm + (toRadioWidth_mm || 0) + gapMm;
+  const maxEnd = labelW_mm - padRightMm;
+  const end = (maxEnd > start) ? maxEnd : start;
+  const center = (end > start) ? start + (end - start)/2 : start;
+  return clamp(center, 0, labelW_mm);
+}
 function measureText(ctx, text, font){ ctx.save(); ctx.font=font; const w=ctx.measureText(text||"").width; ctx.restore(); return w; }
 function getCellText(row, source, cfg){
   const key=(source||"").toUpperCase().trim();
@@ -1441,6 +1466,7 @@ function readConfig(){
     rowOffsets:fitCsv(document.getElementById('rowOffsets').value, +(document.getElementById('rows').value||8), 0),
     padXmm:parseFloat(document.getElementById('padX').value||"2"),
     padYmm:parseFloat(document.getElementById('padY').value||"2"),
+    toRadioText:document.getElementById('toRadioText').value || "",
     footerL:document.getElementById('footerL').value,
     footerR:document.getElementById('footerR').value,
     footerRShiftmm:parseFloat(document.getElementById('footerRShift').value||"5"),
@@ -1558,6 +1584,13 @@ function renderOnePage(cfg, pageIdx){
   const labelH_mm = (cfg.mode==='qslCard') ? cfg.cardLabelHeightmm : cfg.labelHmm;
   const labelWpt = mm2pt(labelW_mm);
   const labelHpt = mm2pt(labelH_mm);
+  const L = cfg.layout;
+  const unlockCall = document.getElementById('unlockCallX');
+  const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
+  const callAlign = callIsCentered ? "center" : "left";
+  const toRadioText = getToRadioLabel(cfg);
+  const toRadioWidthMm = measureToRadioWidthMm(cfg);
+  const callCenterLocalX_mm = computeCallCenterLocalXmm(cfg, L, labelW_mm, toRadioWidthMm);
   const perPage=cfg.cols*cfg.rows; const start=pageIdx*perPage; const end=Math.min(labels.length, start+perPage);
   const padXpt=mm2pt(cfg.padXmm), padYpt=mm2pt(cfg.padYmm);
   for(let idx=start; idx<end; idx++){
@@ -1587,12 +1620,11 @@ function renderOnePage(cfg, pageIdx){
       const scale=labelWpt / mm2pt(sum);
       colW=cfg.staticColMM.map(mm=>mm2pt(mm)*scale);
     }
-    const L = cfg.layout; 
     ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
-    ctx.fillText("To Radio", x0 + mm2pt(L.toRadio.x_mm), y0 + mm2pt(L.toRadio.y_mm));
-    const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
-    const callXpt = (callAlign === "center")
-      ? (x0 + labelWpt/2) : (x0 + mm2pt(L.callsign.x_mm ?? cfg.padXmm));
+    ctx.fillText(toRadioText, x0 + mm2pt(L.toRadio.x_mm), y0 + mm2pt(L.toRadio.y_mm));
+    const callXpt = callIsCentered
+      ? (x0 + mm2pt(callCenterLocalX_mm))
+      : (x0 + mm2pt(L.callsign.x_mm ?? cfg.padXmm));
     const callSegments = buildCallSegments(call, chunk, cfg);
     drawCallSegmentsCanvas(ctx, callSegments, callXpt, y0 + mm2pt(L.callsign.y_mm), callAlign);
     ctx.textAlign="left";
@@ -1723,6 +1755,15 @@ async function downloadPDF() {
             docInst.line(a.x, a.y, b.x, b.y);
         }
     }
+    const L = cfg.layout;
+    const unlockCall = document.getElementById('unlockCallX');
+    const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
+    const callAlign = callIsCentered ? "center" : "left";
+    const toRadioText = getToRadioLabel(cfg);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(cfg.sizeToRadio);
+    const toRadioWidthMmPdf = doc.getTextWidth(toRadioText);
+    const callCenterLocalX_mm = computeCallCenterLocalXmm(cfg, L, labelW_mm, toRadioWidthMmPdf);
     for (let p = 0; p < pages; p++) {
         if (p > 0) doc.addPage([cfg.pageWmm, cfg.pageHmm], orientation);
         if (cfg.dbgOutline && cfg.mode === 'qslCard') {
@@ -1800,11 +1841,9 @@ async function downloadPDF() {
                 const scale = labelWpt / mm2pt(sum);
                 colWpt = cfg.staticColMM.map(mm => mm2pt(mm) * scale);
             }
-            const L = cfg.layout;
             const toRadioPos = toPage(L.toRadio.x_mm, L.toRadio.y_mm);
-            pdfText("To Radio", toRadioPos.x, toRadioPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
-            const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
-            const callLocalX = (callAlign === "center") ? (labelW_mm / 2) : (L.callsign.x_mm ?? padX_mm);
+            pdfText(toRadioText, toRadioPos.x, toRadioPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
+            const callLocalX = callIsCentered ? callCenterLocalX_mm : (L.callsign.x_mm ?? padX_mm);
             const callPos = toPage(callLocalX, L.callsign.y_mm);
             const callSegments = buildCallSegments(call, chunk, cfg);
             drawCallSegmentsPdf(doc, callSegments, callPos.x, callPos.y, callAlign, rotation);
@@ -2030,12 +2069,18 @@ function renderEditor(){
   ctx.strokeRect(mm2pt(cfg.padXmm), mm2pt(cfg.padYmm), mm2pt(labelW_mm-2*cfg.padXmm), mm2pt(labelH_mm-2*cfg.padYmm));
   ctx.setLineDash([]);
   const L=cfg.layout;
+  const unlockCall = document.getElementById('unlockCallX');
+  const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
+  const callAlign = callIsCentered ? "center" : "left";
+  const toRadioText = getToRadioLabel(cfg);
+  const toRadioWidthMm = measureToRadioWidthMm(cfg);
+  const callCenterLocalX_mm = computeCallCenterLocalXmm(cfg, L, labelW_mm, toRadioWidthMm);
   ctx.fillStyle="#000";
   ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
-  ctx.fillText("To Radio", mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm));
-  const callXpt = (L.callsign.centerX && !document.getElementById('unlockCallX').checked)
-    ? (mm2pt(labelW_mm)/2) : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
-  const callAlign = (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "center" : "left";
+  ctx.fillText(toRadioText, mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm));
+  const callXpt = callIsCentered
+    ? mm2pt(callCenterLocalX_mm)
+    : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
   const sampleChunk = cfg.useQslVia ? [{ QSL_VIA: "SAMPLE" }] : [];
   drawCallSegmentsCanvas(ctx, buildCallSegments("SAMPLECALL", sampleChunk, cfg), callXpt, mm2pt(L.callsign.y_mm), callAlign);
   ctx.textAlign="left";
@@ -2049,7 +2094,7 @@ function renderEditor(){
   ctx.fillText(cfg.footerR || "TNX & 73", mm2pt(L.footerR.x_mm), mm2pt(L.footerR.y_mm));
   ctx.textAlign="left";
   drawHandle(ctx, mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm), "toRadio");
-  drawHandle(ctx, callXpt,              mm2pt(L.callsign.y_mm), "callsign", (L.callsign.centerX && !document.getElementById('unlockCallX').checked) ? "y" : "xy");
+  drawHandle(ctx, callXpt,              mm2pt(L.callsign.y_mm), "callsign", callIsCentered ? "y" : "xy");
   drawHandle(ctx, mm2pt(cfg.padXmm),    mm2pt(L.headers.y_mm), "headers", "y");
   drawHandle(ctx, mm2pt(cfg.padXmm),    mm2pt(L.table.y_mm),   "table",   "y");
   drawHandle(ctx, mm2pt(L.footerL.x_mm),mm2pt(L.footerL.y_mm), "footerL");
@@ -2074,11 +2119,16 @@ function hitTestHandle(cfg, xpt, ypt){
   const {labelW_mm} = currentLabelDims(cfg);
   const L=cfg.layout;
   const hs=handleSizePt/2;
-  const callXpt = (L.callsign.centerX && !document.getElementById('unlockCallX').checked)
-    ? (mm2pt(labelW_mm)/2) : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
+  const unlockCall = document.getElementById('unlockCallX');
+  const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
+  const toRadioWidthMm = measureToRadioWidthMm(cfg);
+  const callCenterLocalX_mm = computeCallCenterLocalXmm(cfg, L, labelW_mm, toRadioWidthMm);
+  const callXpt = callIsCentered
+    ? mm2pt(callCenterLocalX_mm)
+    : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
   const handles = [
     {key:"toRadio", x:mm2pt(L.toRadio.x_mm), y:mm2pt(L.toRadio.y_mm), lock:"xy"},
-    {key:"callsign",x:callXpt, y:mm2pt(L.callsign.y_mm), lock: (L.callsign.centerX && !document.getElementById('unlockCallX').checked)?"y":"xy"},
+    {key:"callsign",x:callXpt, y:mm2pt(L.callsign.y_mm), lock: callIsCentered?"y":"xy"},
     {key:"headers", x:mm2pt(cfg.padXmm), y:mm2pt(L.headers.y_mm), lock:"y"},
     {key:"table",   x:mm2pt(cfg.padXmm), y:mm2pt(L.table.y_mm), lock:"y"},
     {key:"footerL", x:mm2pt(L.footerL.x_mm), y:mm2pt(L.footerL.y_mm), lock:"xy"},
@@ -2107,6 +2157,8 @@ layoutCanvas.addEventListener('pointermove', (e)=>{
   const x = e.offsetX / dpr, y = e.offsetY / dpr;
   const {labelW_mm,labelH_mm}=currentLabelDims(cfg);
   const L=cfg.layout;
+  const unlockCall = document.getElementById('unlockCallX');
+  const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
   let nx = x - dragging.dx, ny = y - dragging.dy; 
   let x_mm = pt2mm(nx), y_mm = pt2mm(ny);
   const snap = parseFloat(document.getElementById('snapMM').value || "0.25");
@@ -2117,7 +2169,7 @@ layoutCanvas.addEventListener('pointermove', (e)=>{
     if(dragging.lock!=="y") L.toRadio.x_mm = clamp(x_mm, xMin, xMax);
     if(dragging.lock!=="x") L.toRadio.y_mm = clamp(y_mm, yMin, yMax);
   }else if(dragging.key==="callsign"){
-    if((L.callsign.centerX && !document.getElementById('unlockCallX').checked)){
+    if(callIsCentered){
       L.callsign.y_mm = clamp(y_mm, yMin, yMax);
     }else{
       L.callsign.x_mm = clamp(x_mm, xMin, xMax);
@@ -2145,7 +2197,7 @@ layoutCanvas.addEventListener('pointercancel', ()=>{ dragging=null; });
 /* ===== UI wiring & boot ===== */
 function applyConfigToUI(cfg){
   const map={ pageSize:'pageSize', cols:'cols', rows:'rows', labelHmm:'labelH', marginLmm:'marginL', marginRmm:'marginR', colGapmm:'colGap', rowGapmm:'rowGap', marginTmm:'marginT',
-    xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', footerL:'footerL', footerR:'footerR',
+    xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', toRadioText:'toRadioText', footerL:'footerL', footerR:'footerR',
     footerRShiftmm:'footerRShift', footerYShiftmm:'footerYShift', rowsPerLabel:'rowsPerLabel', colSlackPt:'slackPt',
     lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeViaLabel:'sizeViaLabel', sizeViaManager:'sizeViaManager',
     sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
