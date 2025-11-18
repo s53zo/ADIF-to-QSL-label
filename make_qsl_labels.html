@@ -691,7 +691,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
-        <div class="version">Version v5.04</div>
+        <div class="version">Version v5.05</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP</div>
       </div>
@@ -1821,6 +1821,15 @@ function readConfig(){
   document.getElementById('staticColMM').value= cfg.staticColMM.join(',');
   return cfg;
 }
+function configWithoutFilters(cfg){
+  if(!cfg || typeof cfg!=='object') return {};
+  const { f, ...rest } = cfg;
+  const clean = { ...rest };
+  if('dedupeMode' in clean){
+    delete clean.dedupeMode;
+  }
+  return clean;
+}
 
 /* ===== Preview & PDF use layout ===== */
 const canvas=document.getElementById('preview');
@@ -2484,16 +2493,13 @@ function applyConfigToUI(cfg){
     footerRShiftmm:'footerRShift', footerYShiftmm:'footerYShift', rowsPerLabel:'rowsPerLabel', colSlackPt:'slackPt',
     lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeViaLabel:'sizeViaLabel', sizeViaManager:'sizeViaManager',
     sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
-    startRow:'startRow', startCol:'startCol', sortMode:'sortMode', dedupeMode:'fDedupe'
+    startRow:'startRow', startCol:'startCol', sortMode:'sortMode'
   };
   if(cfg.sortMode){
     const normalizedSort = String(cfg.sortMode).toUpperCase();
     cfg.sortMode = SORT_MODES.includes(normalizedSort) ? normalizedSort : 'CALL';
   }else{
     cfg.sortMode = 'CALL';
-  }
-  if((cfg==null || cfg.dedupeMode==null) && cfg?.f && cfg.f.dedupeMode){
-    cfg.dedupeMode = cfg.f.dedupeMode;
   }
   if(cfg.dedupeMode){
     const normalizedDedupe = String(cfg.dedupeMode).toUpperCase();
@@ -2519,18 +2525,6 @@ function applyConfigToUI(cfg){
   if(cfg.rowOffsets) document.getElementById('rowOffsets').value = cfg.rowOffsets.join(",");
   if(cfg.minColMM) document.getElementById('minColMM').value = cfg.minColMM.join(",");
   if(cfg.staticColMM) document.getElementById('staticColMM').value = cfg.staticColMM.join(",");
-  if(cfg.f && cfg.f.dxcc) document.getElementById('fDxcc').value = Array.from(cfg.f.dxcc).join(',');
-  if(cfg.f){
-    if(cfg.f.qslRules){
-      setQslRulesFromConfig(cfg.f.qslRules);
-    }else if(cfg.f.qslStatus && cfg.f.qslStatus !== 'ALL'){
-      setQslRulesFromConfig(convertLegacyQslFilterToRules(cfg.f.qslField, cfg.f.qslStatus));
-    }else{
-      setQslRulesFromConfig(null);
-    }
-  }else{
-    setQslRulesFromConfig(null);
-  }
   if(cfg.exportScope){
     const normalizedScope = String(cfg.exportScope).toUpperCase();
     document.getElementById('exportScope').value = normalizedScope === 'ALL' ? 'ALL' : 'FILTERED';
@@ -2681,7 +2675,10 @@ function bindInputs(){
     adifTooltip.addEventListener('focusin', showTooltip);
     adifTooltip.addEventListener('focusout', hideTooltip);
   }
-  document.getElementById('saveCfg').onclick=()=>{ const cfg=readConfig(); downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'})); };
+  document.getElementById('saveCfg').onclick=()=>{
+    const cfg=configWithoutFilters(readConfig());
+    downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
+  };
   document.getElementById('loadCfg').addEventListener('change', async e => {
     const f = e.target.files?.[0]; // CORRECTED THIS LINE
     if (!f) return;
@@ -2699,7 +2696,8 @@ function bindInputs(){
         if (layoutState) {
             layoutStateByMode.set(currentLayoutMode, layoutState);
         }
-        applyConfigToUI(obj);
+        const sanitized = configWithoutFilters(obj);
+        applyConfigToUI(sanitized);
         if (obj.layout) {
             layoutState = obj.layout;
             layoutState._custom = obj.layout._custom ?? true;
