@@ -336,6 +336,11 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
         </button>
         <div class="section-body">
           <p class="section-hint">Align the template with your sheet before printing multiples.</p>
+          <div class="row mode-labels-only">
+            <label>Label template</label>
+            <select id="labelTemplate"></select>
+          </div>
+          <p class="help mode-labels-only">Pick a template to auto-fill page and label settings.</p>
           <div class="row mode-labels-only"><label>Page Size</label>
             <select id="pageSize">
               <option value="A4" selected>A4 (210×297mm)</option>
@@ -691,7 +696,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="seaside">Seaside Daylight</option>
           </select>
         </div>
-        <div class="version">Version v5.05</div>
+        <div class="version">Version v5.06</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP</div>
       </div>
@@ -1012,6 +1017,380 @@ const THEMES={
   paper:{ label:"Classic Paper", colorScheme:"light", vars:{ '--bg':'#fdfbf7','--panel':'#ffffff','--panel-2':'#f5f1eb','--ink':'#302620','--muted':'#7d6d62','--border':'#dcd2c6','--accent':'#22577a','--accent-2':'#38a3a5' } },
   seaside:{ label:"Seaside Daylight", colorScheme:"light", vars:{ '--bg':'#e8f8fb','--panel':'#ffffff','--panel-2':'#dff0f6','--ink':'#083049','--muted':'#5f93ad','--border':'#b3d7e6','--accent':'#0c6ca6','--accent-2':'#f26157' } },
 };
+const LABEL_TEMPLATES = [
+  {
+    name: "Avery 5160 / 8160 / 5960 / Amazon Basics / OnlineLabels OL875 / SheetLabels / WorldLabel WL-875",
+    code: "5160",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 66.675,
+    labelHeight: 25.4,
+    labelsAcross: 3,
+    labelsDown: 10,
+    marginTop: 12.7,
+    marginBottom: 12.7,
+    marginLeft: 4.775,
+    marginRight: 4.775,
+    gutterX: 3.175,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "letter"
+  },
+  {
+    name: "Avery 5970 / 5979 / 6479 (Rounded corners 5160)",
+    code: "5970",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 66.675,
+    labelHeight: 25.4,
+    labelsAcross: 3,
+    labelsDown: 10,
+    marginTop: 12.7,
+    marginBottom: 12.7,
+    marginLeft: 4.775,
+    marginRight: 4.775,
+    gutterX: 3.175,
+    gutterY: 0,
+    cornerRadius: 1.6,
+    pageSize: "letter"
+  },
+  {
+    name: "Avery 5260 / 5660 / 8660 / 5520 (Clear / Glossy / Removable 5160)",
+    code: "5260",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 66.675,
+    labelHeight: 25.4,
+    labelsAcross: 3,
+    labelsDown: 10,
+    marginTop: 12.7,
+    marginBottom: 12.7,
+    marginLeft: 4.775,
+    marginRight: 4.775,
+    gutterX: 3.175,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "letter"
+  },
+  {
+    name: "Avery 5163 / 8163 / 5263 / Amazon Basics / Staples (2x4 in)",
+    code: "5163",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 101.6,
+    labelHeight: 50.8,
+    labelsAcross: 2,
+    labelsDown: 5,
+    marginTop: 12.7,
+    marginBottom: 12.7,
+    marginLeft: 6.35,
+    marginRight: 6.35,
+    gutterX: 3.175,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "letter"
+  },
+  {
+    name: "Avery 5162 / 8162 Address (1 1/3 x 4 in)",
+    code: "5162",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 101.6,
+    labelHeight: 33.867,
+    labelsAcross: 2,
+    labelsDown: 7,
+    marginTop: 12.7,
+    marginBottom: 12.7,
+    marginLeft: 4.064,
+    marginRight: 4.064,
+    gutterX: 2.54,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "letter"
+  },
+  {
+    name: "Avery 5161 / 8161 / 5261 (1x4 in)",
+    code: "5161",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 101.6,
+    labelHeight: 25.4,
+    labelsAcross: 2,
+    labelsDown: 10,
+    marginTop: 12.7,
+    marginBottom: 12.7,
+    marginLeft: 7.62,
+    marginRight: 7.62,
+    gutterX: 3.175,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "letter"
+  },
+  {
+    name: "Avery 5167 / 5267 / 8167 / OnlineLabels OL8000 (1/2 x 1 3/4 in)",
+    code: "5167",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 44.45,
+    labelHeight: 12.7,
+    labelsAcross: 4,
+    labelsDown: 20,
+    marginTop: 12.7,
+    marginBottom: 12.7,
+    marginLeft: 4.826,
+    marginRight: 4.826,
+    gutterX: 3.175,
+    gutterY: 0,
+    cornerRadius: 1.6,
+    pageSize: "letter"
+  },
+  {
+    name: "Avery Presta T00-2233 (1.5x3 in custom blank)",
+    code: "PrestaT00-2233",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 76.2,
+    labelHeight: 38.1,
+    labelsAcross: 3,
+    labelsDown: 4,
+    marginTop: 17.526,
+    marginBottom: 17.526,
+    marginLeft: 19.812,
+    marginRight: 19.812,
+    gutterX: 5.08,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "letter"
+  },
+  {
+    name: "Avery L7160 / Zweckform 3478 (common EU address label)",
+    code: "L7160",
+    sheetWidth: 210,
+    sheetHeight: 297,
+    labelWidth: 63.5,
+    labelHeight: 38.1,
+    labelsAcross: 3,
+    labelsDown: 7,
+    marginTop: 11.9,
+    marginBottom: 11.9,
+    marginLeft: 7.5,
+    marginRight: 7.5,
+    gutterX: 2.5,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "A4"
+  },
+  {
+    name: "Zweckform L7162 (99x34 mm - 16 per A4)",
+    code: "L7162",
+    sheetWidth: 210,
+    sheetHeight: 297,
+    labelWidth: 99.1,
+    labelHeight: 34,
+    labelsAcross: 2,
+    labelsDown: 8,
+    marginTop: 16,
+    marginBottom: 16,
+    marginLeft: 4.5,
+    marginRight: 4.5,
+    gutterX: 3.3,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "A4"
+  },
+  {
+    name: "Zweckform L7163 / Avery L7163 (99x38 mm - 14 per A4)",
+    code: "L7163",
+    sheetWidth: 210,
+    sheetHeight: 297,
+    labelWidth: 99.1,
+    labelHeight: 38.1,
+    labelsAcross: 2,
+    labelsDown: 7,
+    marginTop: 11.9,
+    marginBottom: 11.9,
+    marginLeft: 4.5,
+    marginRight: 4.5,
+    gutterX: 3.3,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "A4"
+  },
+  {
+    name: "Zweckform L7165 Large (99x67.7 mm - 8 per A4)",
+    code: "L7165",
+    sheetWidth: 210,
+    sheetHeight: 297,
+    labelWidth: 99.1,
+    labelHeight: 67.7,
+    labelsAcross: 2,
+    labelsDown: 4,
+    marginTop: 11.9,
+    marginBottom: 11.9,
+    marginLeft: 4.5,
+    marginRight: 4.5,
+    gutterX: 3.3,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "A4"
+  },
+  {
+    name: "Zweckform L7166 Extra Large (99x93 mm - 6 per A4)",
+    code: "L7166",
+    sheetWidth: 210,
+    sheetHeight: 297,
+    labelWidth: 99.1,
+    labelHeight: 93.1,
+    labelsAcross: 2,
+    labelsDown: 3,
+    marginTop: 11.9,
+    marginBottom: 11.9,
+    marginLeft: 4.5,
+    marginRight: 4.5,
+    gutterX: 3.3,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "A4"
+  },
+  {
+    name: "HERMA 4677 (70x36 mm - common EU)",
+    code: "HERMA4677",
+    sheetWidth: 210,
+    sheetHeight: 297,
+    labelWidth: 70,
+    labelHeight: 36,
+    labelsAcross: 3,
+    labelsDown: 8,
+    marginTop: 14,
+    marginBottom: 14,
+    marginLeft: 7,
+    marginRight: 7,
+    gutterX: 2.5,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "A4"
+  },
+  {
+    name: "HERMA 4459 / 5059 (70x42.3 mm)",
+    code: "HERMA4459",
+    sheetWidth: 210,
+    sheetHeight: 297,
+    labelWidth: 70,
+    labelHeight: 42.3,
+    labelsAcross: 3,
+    labelsDown: 7,
+    marginTop: 15,
+    marginBottom: 15,
+    marginLeft: 7,
+    marginRight: 7,
+    gutterX: 2.5,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "A4"
+  },
+  {
+    name: "Avery 5164 / 8164 Shipping (3 1/3 x 4 in - 6 per sheet)",
+    code: "5164",
+    sheetWidth: 215.9,
+    sheetHeight: 279.4,
+    labelWidth: 101.6,
+    labelHeight: 84.67,
+    labelsAcross: 2,
+    labelsDown: 3,
+    marginTop: 12.7,
+    marginBottom: 12.7,
+    marginLeft: 6.35,
+    marginRight: 6.35,
+    gutterX: 3.175,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "letter"
+  },
+  {
+    name: "Dymo LabelWriter 30252 (1 1/8 x 3 1/2 in roll)",
+    code: "DYMO30252",
+    sheetWidth: 28.575,
+    sheetHeight: 88.9,
+    labelWidth: 28.575,
+    labelHeight: 88.9,
+    labelsAcross: 1,
+    labelsDown: 1,
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    gutterX: 0,
+    gutterY: 0,
+    cornerRadius: 0,
+    pageSize: "continuous"
+  }
+];
+const SUPPORTED_PAGE_SIZES = new Set(["A4", "LETTER"]);
+function normalizePageSize(value){
+  const upper = String(value || "").trim().toUpperCase();
+  if(upper === "LETTER") return "LETTER";
+  if(upper === "A4") return "A4";
+  return upper;
+}
+function labelTemplateGroupLabel(size){
+  if(size === "LETTER") return "US Letter";
+  if(size === "A4") return "A4";
+  return "Other";
+}
+function applyLabelTemplate(template){
+  if(!template) return;
+  const normalized = normalizePageSize(template.pageSize);
+  if(!SUPPORTED_PAGE_SIZES.has(normalized)){
+    alert("This template uses a non-sheet page size. Use QSL card mode for roll labels.");
+    return;
+  }
+  const pageSizeEl = document.getElementById('pageSize');
+  if(pageSizeEl){ pageSizeEl.value = normalized; }
+  document.getElementById('cols').value = template.labelsAcross;
+  document.getElementById('rows').value = template.labelsDown;
+  document.getElementById('labelH').value = template.labelHeight;
+  document.getElementById('marginT').value = template.marginTop;
+  document.getElementById('marginL').value = template.marginLeft;
+  document.getElementById('marginR').value = template.marginRight;
+  document.getElementById('colGap').value = template.gutterX;
+  document.getElementById('rowGap').value = template.gutterY;
+  autoResizeOffsetCSVs();
+  recompute();
+}
+function initLabelTemplateSelect(){
+  const select=document.getElementById('labelTemplate');
+  if(!select) return;
+  select.innerHTML="";
+  const customOpt=document.createElement('option');
+  customOpt.value="";
+  customOpt.textContent="Custom / Manual";
+  select.appendChild(customOpt);
+  const groups=new Map();
+  LABEL_TEMPLATES.forEach(template=>{
+    const normalized = normalizePageSize(template.pageSize);
+    const groupLabel = labelTemplateGroupLabel(normalized);
+    let group = groups.get(groupLabel);
+    if(!group){
+      group = document.createElement('optgroup');
+      group.label = groupLabel;
+      groups.set(groupLabel, group);
+      select.appendChild(group);
+    }
+    const opt=document.createElement('option');
+    opt.value=template.code;
+    const unsupported = !SUPPORTED_PAGE_SIZES.has(normalized);
+    opt.textContent = unsupported ? `${template.name} (unsupported in label mode)` : template.name;
+    if(unsupported){ opt.disabled = true; }
+    group.appendChild(opt);
+  });
+  select.addEventListener('change', ()=>{
+    const code = select.value;
+    if(!code) return;
+    const template = LABEL_TEMPLATES.find(item=>item.code===code);
+    if(!template) return;
+    applyLabelTemplate(template);
+  });
+}
 const SORT_MODES = ['CALL','PREFIX','DATE_ASC','DATE_DESC','FIFO'];
 const FIELD_TAG_WITH_ATTR = /<([A-Za-z0-9_]+):(\d+)(?::([^>]+))?>/ig;
 const PREFERRED_FIELD_ORDER = ['CALL','QSO_DATE','QSO_DATE_OFF','TIME_ON','TIME_OFF','BAND','MODE','FREQ'];
@@ -1701,14 +2080,17 @@ function defaultLayout(cfg){
   layout._custom = false;
   return layout;
 }
-function pageDims(name){ return (name==="LETTER")?LETTER:A4; }
+function pageDims(name){
+  const normalized = normalizePageSize(name);
+  return (normalized==="LETTER")?LETTER:A4;
+}
 function readConfig(){
   const modeSelBtn=document.querySelector('.mode-option.selected');
   const mode = modeSelBtn ? modeSelBtn.dataset.mode : 'labels';
   const colRows=[...document.querySelectorAll('.col-row')];
   const columns=colRows.map(r=>({ header:r.querySelector('.col-h')?.value.trim()||"Col", source:r.querySelector('.col-s')?.value.trim()||"DATE" }));
   function fitCsv(csv,len,fill=0){ const arr=parseCSVfloats(csv); if(arr.length<len) arr.push(...Array(len-arr.length).fill(fill)); if(arr.length>len) arr.length=len; return arr; }
-  const pm=document.getElementById('pageSize')?.value||'A4';
+  const pm=normalizePageSize(document.getElementById('pageSize')?.value||'A4');
   const cardWidth=parseFloat(document.getElementById('cardWidth')?.value||"150");
   const cardHeight=parseFloat(document.getElementById('cardHeight')?.value||"100");
   const cardLabelWidth=parseFloat(document.getElementById('cardLabelWidth')?.value||String(cardWidth));
@@ -2215,7 +2597,7 @@ function downloadUpdatedAdif(){
     }
     const headerLine = (originalAdifHeader && originalAdifHeader.trim().length)
         ? originalAdifHeader.trimEnd()
-        : "Generated by QSL Labels v5.04";
+        : "Generated by QSL Labels v5.06";
     let output = "";
     if (headerLine) {
         output += headerLine + "\n";
@@ -2488,6 +2870,9 @@ layoutCanvas.addEventListener('pointercancel', ()=>{ dragging=null; });
 
 /* ===== UI wiring & boot ===== */
 function applyConfigToUI(cfg){
+  if(cfg.pageSize){
+    cfg.pageSize = normalizePageSize(cfg.pageSize);
+  }
   const map={ pageSize:'pageSize', cols:'cols', rows:'rows', labelHmm:'labelH', marginLmm:'marginL', marginRmm:'marginR', colGapmm:'colGap', rowGapmm:'rowGap', marginTmm:'marginT',
     xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', toRadioText:'toRadioText', footerL:'footerL', footerR:'footerR',
     footerRShiftmm:'footerRShift', footerYShiftmm:'footerYShift', rowsPerLabel:'rowsPerLabel', colSlackPt:'slackPt',
@@ -2578,7 +2963,7 @@ function autoResizeOffsetCSVs(){
 }
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
-    if(["adifFile","downloadBtn","downloadAdifBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat","addQslRule"].includes(el.id)) return;
+    if(["adifFile","downloadBtn","downloadAdifBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat","addQslRule","labelTemplate"].includes(el.id)) return;
     if(el.id==='themeSelect') return;
     if(el.classList.contains('section-toggle') || el.classList.contains('mode-option')) return;
     el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
@@ -2737,6 +3122,7 @@ syncColArraysToDefaults();
 initTheme();
 initCollapsibles();
 initQslRuleBuilder();
+initLabelTemplateSelect();
 bindInputs();
 loadSample();
 </script>
