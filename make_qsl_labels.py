@@ -121,27 +121,58 @@ CONFIG: Dict = {
 import sys
 
 FIELD_TAG = re.compile(r"<([A-Za-z0-9_]+):(\d+)(?::[^>]+)?>", re.IGNORECASE)
+EOR_TAG = re.compile(r"(?i)<eor>")
+
+def parse_adif_record(rec: str) -> Dict[str, str]:
+    pos = 0
+    fields: Dict[str, str] = {}
+    while True:
+        m = FIELD_TAG.search(rec, pos)
+        if not m:
+            break
+        tag = m.group(1).upper()
+        ln = int(m.group(2))
+        start = m.end()
+        val = rec[start:start+ln]
+        pos = start + ln
+        fields[tag] = val.strip()
+    return fields
 
 def parse_adif(text: str) -> List[Dict[str, str]]:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    records_raw = re.split(r"(?i)<eor>", text)
+    records_raw = EOR_TAG.split(text)
     records: List[Dict[str, str]] = []
     for rec in records_raw:
-        pos = 0
-        fields: Dict[str, str] = {}
-        while True:
-            m = FIELD_TAG.search(rec, pos)
-            if not m:
-                break
-            tag = m.group(1).upper()
-            ln = int(m.group(2))
-            start = m.end()
-            val = rec[start:start+ln]
-            pos = start + ln
-            fields[tag] = val.strip()
+        fields = parse_adif_record(rec)
         if fields:
             records.append(fields)
     return records
+
+def iter_adif_records(path: Path, chunk_size: int = 65536):
+    """Yield raw ADIF record strings without loading the whole file."""
+    with path.open("r", encoding="utf-8", errors="ignore") as f:
+        buf = ""
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            buf += chunk
+            while True:
+                m = EOR_TAG.search(buf)
+                if not m:
+                    break
+                rec = buf[:m.start()]
+                buf = buf[m.end():]
+                if rec.strip():
+                    yield rec
+        if buf.strip():
+            yield buf
+
+def iter_adif_dicts(path: Path, chunk_size: int = 65536):
+    for rec in iter_adif_records(path, chunk_size=chunk_size):
+        fields = parse_adif_record(rec)
+        if fields:
+            yield fields
 
 def fmt_date(adif_date: str) -> str:
     if not adif_date:
@@ -454,6 +485,53 @@ def merge_dict(dst: Dict, src: Dict):
     for k, v in src.items():
         dst[k] = v
 
+def validate_config(cfg: Dict):
+    def is_num(v):
+        return isinstance(v, (int, float))
+
+    if cfg.get("page_size") not in ("A4", "LETTER"):
+        raise ValueError("page_size must be 'A4' or 'LETTER'")
+    if not isinstance(cfg.get("cols"), int) or cfg["cols"] <= 0:
+        raise ValueError("cols must be a positive integer")
+    if not isinstance(cfg.get("rows"), int) or cfg["rows"] <= 0:
+        raise ValueError("rows must be a positive integer")
+    if not isinstance(cfg.get("rows_per_label"), int) or cfg["rows_per_label"] <= 0:
+        raise ValueError("rows_per_label must be a positive integer")
+
+    if not isinstance(cfg.get("columns"), list) or not cfg["columns"]:
+        raise ValueError("columns must be a non-empty list")
+    for i, col in enumerate(cfg["columns"]):
+        if not isinstance(col, dict):
+            raise ValueError(f"columns[{i}] must be a mapping")
+        if not isinstance(col.get("header"), str) or not col["header"].strip():
+            raise ValueError(f"columns[{i}].header must be a non-empty string")
+        if not isinstance(col.get("source"), str) or not col["source"].strip():
+            raise ValueError(f"columns[{i}].source must be a non-empty string")
+
+    col_count = len(cfg["columns"])
+    if not isinstance(cfg.get("min_col_mm"), list) or len(cfg["min_col_mm"]) != col_count:
+        raise ValueError("min_col_mm must be a list matching columns length")
+    if not isinstance(cfg.get("static_col_mm"), list) or len(cfg["static_col_mm"]) != col_count:
+        raise ValueError("static_col_mm must be a list matching columns length")
+    if not isinstance(cfg.get("col_offsets_mm"), list) or len(cfg["col_offsets_mm"]) != cfg["cols"]:
+        raise ValueError("col_offsets_mm must be a list matching cols")
+    if not isinstance(cfg.get("row_offsets_mm"), list) or len(cfg["row_offsets_mm"]) != cfg["rows"]:
+        raise ValueError("row_offsets_mm must be a list matching rows")
+    for key in ("min_col_mm", "static_col_mm", "col_offsets_mm", "row_offsets_mm"):
+        if any(not is_num(v) for v in cfg[key]):
+            raise ValueError(f"{key} entries must be numbers")
+
+    numeric_keys = [
+        "label_h_mm", "left_margin_mm", "right_margin_mm",
+        "x_offset_mm", "y_offset_mm", "pad_x_mm", "pad_y_mm",
+        "footer_right_shift_mm", "footer_y_shift_mm", "col_slack_pt",
+        "size_to_radio", "size_callsign", "size_col_headers", "size_rows", "size_footer",
+    ]
+    for k in numeric_keys:
+        v = cfg.get(k)
+        if v is not None and not is_num(v):
+            raise ValueError(f"{k} must be a number")
+
 def parse_float_list_csv(s: str) -> List[float]:
     if s is None or not s.strip():
         return []
@@ -522,16 +600,15 @@ def main():
     if args.right_margin_mm is not None: cfg["right_margin_mm"] = args.right_margin_mm
 
     if args.static_cols: cfg["dynamic_col_widths"] = False
+    validate_config(cfg)
 
     # Load ADIF
     adif_path = Path(args.adif)
     out_pdf = Path(args.out)
-    text = adif_path.read_text(encoding="utf-8", errors="ignore")
-    recs = parse_adif(text)
 
     # Build rows
     rows: List[Dict[str, str]] = []
-    for r in recs:
+    for r in iter_adif_dicts(adif_path):
         call = r.get("CALL", "").upper().strip()
         if not call:
             continue
