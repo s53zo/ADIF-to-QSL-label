@@ -9,32 +9,34 @@
   gtag('config', 'G-PZCLRVBKKT');
 </script>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google-analytics.com; connect-src https://www.google-analytics.com; font-src 'self' data:; object-src 'none'; base-uri 'self';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://www.google-analytics.com; connect-src https://www.google-analytics.com; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self';" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#ffffff" />
 <title>ADIF to QSL Labels helper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650;9..144,750&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ===== Light & Dark Themes ===== */
 :root{
---bg:#f8fafc; /* page background */
+--bg:#f6f2ec; /* page background */
 --panel:#ffffff; /* primary surface */
---panel-2:#f1f5f9; /* secondary surface */
---ink:#0f172a; /* text */
---muted:#64748b; /* secondary text */
---accent:#2563eb; /* brand */
---accent-2:#38bdf8; /* secondary brand */
---border:#e2e8f0; /* borders */
---ring:#3b82f6; /* focus ring */
---warn:#d97706; /* warning */
---good:#16a34a; /* success */
---shadow:0 4px 12px rgba(0,0,0,.08);
---radius:12px;
+--panel-2:#efe9e1; /* secondary surface */
+--ink:#1f1a17; /* text */
+--muted:#756b61; /* secondary text */
+--accent:#c2412d; /* brand */
+--accent-2:#2f5e4e; /* secondary brand */
+--border:#e2d7cb; /* borders */
+--ring:#c2412d; /* focus ring */
+--warn:#b45309; /* warning */
+--good:#15803d; /* success */
+--shadow:0 10px 24px rgba(31,26,23,.12);
+--radius:14px;
+--font-display:"Fraunces", "Times New Roman", serif;
+--font-body:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+--font-mono:"IBM Plex Mono", "Courier New", monospace;
 }
-@media (prefers-color-scheme: dark){
-:root{ --bg:#0f172a; --panel:#1e293b; --panel-2:#111827; --ink:#f8fafc; --muted:#94a3b8; --border:#334155; --shadow:0 8px 24px rgba(0,0,0,.4) }
-}
-
-body{margin:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, Roboto, Helvetica, Arial; background:var(--bg); color:var(--ink)}
+body{margin:0; font-family:var(--font-body); background:var(--bg); color:var(--ink); letter-spacing:0.01em}
 body.card-mode .mode-labels-only{display:none !important}
 body:not(.card-mode) .mode-card-only{display:none !important}
 .app{display:grid; grid-template-columns: 380px 1fr; min-height:100vh}
@@ -43,24 +45,26 @@ main{display:flex; flex-direction:column; height:100vh; position:sticky; top:0; 
 
 .mode-toggle{display:inline-flex; gap:12px; background:var(--panel-2); border-radius:999px; padding:6px; border:1px solid var(--border); box-shadow:var(--shadow)}
 .mode-option{flex:1; border:none; background:transparent; color:var(--muted); padding:10px 18px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s}
-.mode-option.selected{background:var(--accent); color:#fff; box-shadow:0 2px 6px rgba(37,99,235,0.25)}
+.mode-option.selected{background:var(--accent); color:#fff; box-shadow:0 4px 10px color-mix(in srgb, var(--accent) 35%, transparent)}
 .mode-option:not(.selected):hover{color:var(--ink); background:rgba(148,163,184,0.15)}
 
-header{position:sticky; top:0; z-index:5; display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); align-items:center; background:var(--panel-2); box-shadow:var(--shadow)}
-header h1{font-size:16px; font-weight:700; margin:0; color:var(--ink)}
+header{position:sticky; top:0; z-index:5; display:flex; gap:12px; padding:16px 18px; border-bottom:1px solid var(--border); align-items:center; background:var(--panel-2); box-shadow:var(--shadow)}
+header h1{font-size:20px; font-weight:650; margin:0; color:var(--ink); font-family:var(--font-display); letter-spacing:0.02em}
 header .spacer{flex:1}
+.header-title{display:flex; flex-direction:column; gap:2px}
+.header-sub{font-size:11px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase}
 
 .grid{display:grid; gap:14px}
-.section{border:1px solid var(--border); border-radius:var(--radius); padding:14px; background:var(--panel); box-shadow:var(--shadow)}
-.section h3{margin:0 0 10px 0; font-size:13px; color:var(--muted); text-transform:uppercase}
+.section{border:1px solid var(--border); border-radius:var(--radius); padding:16px; background:var(--panel); box-shadow:var(--shadow)}
+.section h3{margin:0 0 10px 0; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.14em}
 
 .section.collapsible{padding:0; overflow:hidden}
 .collapsible > .section-toggle{width:100%; border:none; background:var(--panel); color:var(--ink); display:flex; align-items:center; gap:12px; padding:16px 18px; cursor:pointer; font-size:14px; font-weight:600; text-align:left; transition:background .2s ease, color .2s ease}
-.collapsible > .section-toggle:focus-visible{outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.3)}
+.collapsible > .section-toggle:focus-visible{outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--ring) 30%, transparent)}
 .collapsible > .section-toggle:hover{background:var(--panel-2)}
-.collapsible .section-icon{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:rgba(59,130,246,0.15); color:var(--accent)}
+.collapsible .section-icon{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent)}
 .collapsible .section-icon svg{width:14px; height:14px}
-.collapsible .section-title{flex:1; letter-spacing:0.02em}
+.collapsible .section-title{flex:1; letter-spacing:0.06em; font-family:var(--font-display)}
 .collapsible .section-chevron{display:inline-flex; transition:transform .2s ease; color:var(--muted)}
 .collapsible .section-chevron svg{width:14px; height:14px}
 .collapsible > .section-body{padding:16px 18px 18px 18px; border-top:1px solid var(--border); background:var(--panel)}
@@ -73,19 +77,20 @@ header .spacer{flex:1}
 .subsection.collapsible > .section-toggle:hover{background:var(--panel)}
 .subsection.collapsible > .section-body{background:var(--panel-2)}
 .subsection:first-of-type{margin-top:0}
-.version{margin-top:0; text-align:left; font-size:12px; color:var(--muted)}
+.version{margin-top:0; text-align:left; font-size:12px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase}
 
-label{font-size:13px; color:var(--muted)}
+label{font-size:12px; color:var(--muted); letter-spacing:0.05em; text-transform:uppercase}
 input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{
 width:100%; padding:9px 12px; border-radius:10px; border:1px solid var(--border); background:var(--panel-2); color:var(--ink);
 }
+input, select, button{font-family:var(--font-body)}
 input[type="text"]::placeholder{color:var(--muted)}
-input:focus, select:focus{ outline:none; border-color:var(--ring); box-shadow:0 0 0 3px rgba(59,130,246,.3)}
+input:focus, select:focus{ outline:none; border-color:var(--ring); box-shadow:0 0 0 3px color-mix(in srgb, var(--ring) 30%, transparent)}
 
-button{border-radius:10px; padding:10px 14px; font-size:14px; border:1px solid var(--border); color:var(--ink); background:var(--panel-2); cursor:pointer; transition:all .2s}
-button:hover{background:var(--accent); color:white; border-color:var(--accent)}
-button.primary{background:var(--accent); color:white; border-color:var(--accent)}
-button.primary:hover{background:#1d4ed8}
+button{border-radius:12px; padding:11px 16px; font-size:13px; border:1px solid var(--border); color:var(--ink); background:var(--panel-2); cursor:pointer; transition:transform .18s ease, box-shadow .2s ease, background .2s ease, color .2s ease}
+button:hover{background:var(--accent); color:white; border-color:var(--accent); transform:translateY(-1px); box-shadow:0 6px 18px rgba(31,26,23,.18)}
+button.primary{background:var(--accent); color:white; border-color:var(--accent); font-weight:600}
+button.primary:hover{background:#a33626}
 button.secondary{background:var(--panel-2); color:var(--ink); border-color:var(--border)}
 button.secondary:hover{background:var(--accent-2); color:#fff; border-color:var(--accent-2)}
 button:disabled{cursor:not-allowed; opacity:0.65}
@@ -127,7 +132,7 @@ button:disabled{cursor:not-allowed; opacity:0.65}
 .qsl-rule-cell-remove::before{display:none}
 .qsl-rule-row-first .qsl-rule-cell-join{display:none}
 .qsl-rule-remove{border:none; background:transparent; color:var(--muted); font-size:20px; line-height:1; padding:4px 6px; border-radius:999px; cursor:pointer}
-.qsl-rule-remove:hover{background:rgba(56,189,248,0.2); color:var(--ink)}
+.qsl-rule-remove:hover{background:color-mix(in srgb, var(--accent-2) 20%, transparent); color:var(--ink)}
 .qsl-rule-empty{font-size:12px; color:var(--muted); padding:10px; border:1px dashed var(--border); border-radius:10px; text-align:center}
 .qsl-rule-actions{display:flex; justify-content:flex-end}
 .tooltip{position:relative; display:block}
@@ -139,21 +144,22 @@ button:disabled{cursor:not-allowed; opacity:0.65}
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
 
 .tag{padding:2px 8px; border-radius:999px; background:var(--accent-2); color:#fff; font-size:11px; margin-left:8px}
-.stats{font-size:12px; color:var(--muted); margin-left:12px}
+.stats{font-size:12px; color:var(--muted); margin-left:12px; font-variant-numeric:tabular-nums}
 
 canvas{background:#ffffff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow)}
-.preview-wrap{padding:16px; overflow:auto; flex:1; background:var(--panel-2)}
+.preview-wrap{padding:20px; overflow:auto; flex:1; background:var(--panel-2); transition:background .3s ease}
+.preview-wrap.is-recomputing canvas{animation:previewPulse .5s ease}
 .controls{display:flex; gap:10px; align-items:center}
 .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,0.65); z-index:200}
 .overlay .dialog{min-width:280px; padding:18px; border-radius:var(--radius); box-shadow:var(--shadow)}
 .overlay .row{display:flex; gap:12px; margin-bottom:12px}
 .overlay .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:10px}
 
-.banner{margin:10px 16px 0 16px; padding:12px 14px; border-radius:10px; background:#e0f2fe; color:#0369a1; font-size:13px}
+.banner{margin:12px 16px 0 16px; padding:12px 14px; border-radius:12px; background:rgba(194,65,45,.12); color:var(--ink); font-size:12px; border:1px solid rgba(194,65,45,.2)}
 .warn{color:var(--warn); font-size:12px}
 .good{color:var(--good); font-size:12px}
 
-.footer-bar{margin-top:18px; padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:var(--panel); display:flex; flex-direction:column; align-items:flex-start; gap:12px}
+.footer-bar{margin-top:18px; padding:16px 18px; border-radius:14px; border:1px solid var(--border); background:var(--panel); display:flex; flex-direction:column; align-items:flex-start; gap:12px}
 .footer-bar label{font-size:12px; color:var(--muted); margin-right:8px}
 .footer-bar select{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--panel-2); color:var(--ink)}
 .footer-bar select:focus{outline:none; box-shadow:0 0 0 3px rgba(37,100,190,0.25)}
@@ -170,6 +176,7 @@ aside{border-right:none; border-bottom:1px solid var(--border)}
 main{position:static; height:auto}
 .mode-toggle{width:100%; justify-content:space-between}
 .mode-option{flex:1}
+.flow-actions{flex-direction:column}
 .footer-bar{flex-direction:column; align-items:flex-start}
 .footer-bar .theme-switcher{width:100%; justify-content:space-between}
 .footer-bar .theme-switcher select{flex:1}
@@ -177,22 +184,26 @@ main{position:static; height:auto}
 /* === Surface bindings (theme-controlled) === */
 body{ color-scheme: light }
 header{ background: var(--panel); box-shadow: var(--shadow) }
-.section{ background: var(--panel-2) }
+.section{ background: var(--panel) }
 input[type="text"], input[type="number"], input[type="date"], select, input[type="file"]{ background: var(--panel-2); color: var(--ink); border-color: var(--border) }
 #previewControls{ background: var(--panel) }
-.banner{ background: var(--panel-2); border-color: var(--border); color: var(--ink) }
+.banner{ border-color: var(--border); color: var(--ink) }
 .tag{ background: var(--accent); border:none; color:#fff }
 .dialog{ background: var(--panel) }
 .download-buttons{display:flex; flex-direction:column; gap:10px; margin-top:10px}
 .download-buttons button{width:100%}
-.help{font-size:10px}
+.help{font-size:11px; color:var(--muted)}
 #downloadSection .help{text-align:center}
+@keyframes revealIn{from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:translateY(0)}}
+@keyframes previewPulse{0%{transform:scale(0.995); box-shadow:0 0 0 rgba(0,0,0,0)} 100%{transform:scale(1); box-shadow:var(--shadow)}}
+.reveal-on-load{opacity:0; transform:translateY(12px); animation:revealIn .65s ease forwards; animation-delay:var(--delay,0ms)}
 </style>
 </head>
 <body>
 <div class="app">
   <aside>
     <div class="grid">
+      <p class="section-hint">Go step by step: set your needs in each section, then export once everything looks right.</p>
       <div class="section collapsible" data-section="data" data-initial="collapsed">
         <button class="section-toggle" type="button" aria-expanded="true">
           <span class="section-icon" aria-hidden="true">
@@ -209,9 +220,9 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
           </span>
         </button>
         <div class="section-body">
-          <p class="section-hint">Load your ADIF log or try the bundled sample entries. Need to tweak fields? Open the Columns section below.</p>
+          <p class="section-hint">Drop your ADIF log or try the sample. Tweak the columns below if you want RST or custom fields.</p>
           <div class="row">
-            <label>ADIF file</label>
+            <label>ADIF log</label>
             <input id="adifFile" type="file" accept=".adi,.adif,.txt" />
           </div>
           <div class="row">
@@ -663,7 +674,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
         <div class="section-body">
           <p class="section-hint">Export or load a JSON snapshot of every setting.</p>
           <div class="controls">
-            <button id="saveCfg">Save config</button>
+            <button id="saveCfg">Save snapshot</button>
             <input id="loadCfg" type="file" accept=".json" />
           </div>
           <p class="help">Saves/loads JSON with all your settings (including columns & layout).</p>
@@ -672,10 +683,9 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
 
       <div class="section" id="downloadSection">
         <h3>Downloads</h3>
-        <p class="section-hint">Prepare your labes, then export PDF and/or
-        ADIF.</p>
+        <p class="section-hint">Prepare your labels, then export the final PDF or an updated ADIF. Be sure to print at 100% scale.</p>
         <div class="download-buttons">
-          <button id="downloadBtn" class="primary" disabled>Download PDF</button>
+          <button id="downloadBtn" class="primary" disabled>Export PDF</button>
           <div class="tooltip download-tooltip" data-tooltip="Adds QSL_SENT=Y and QSL_SENT_VIA=B to the QSOs you export.">
             <button id="downloadAdifBtn" disabled aria-describedby="downloadAdifHelp">Export ADIF</button>
           </div>
@@ -689,12 +699,11 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
       <div class="footer-bar">
         <!-- LLM NOTE: Always bump the version number above when modifying features. -->
         <div class="theme-switcher">
-          <label for="themeSelect" class="small muted">Theme</label>
+          <label for="themeSelect" class="small muted">Visual direction</label>
           <select id="themeSelect">
-            <option value="paper">Classic Paper</option>
-            <option value="maritime">Maritime Midnight</option>
-            <option value="dusk">Desert Dusk</option>
-            <option value="seaside">Seaside Daylight</option>
+            <option value="printStudio">Print Studio</option>
+            <option value="industrial">Industrial Tool</option>
+            <option value="modernLab">Modern Lab</option>
           </select>
         </div>
         <div class="version">Version v5.12</div>
@@ -709,7 +718,10 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
       <a href="https://s53zo.github.io/ADIF-to-QSL-label/" style="margin-right: 10px;">
         <img src="https://s53zo.github.io/ADIF-to-QSL-label/ADIFtoQSL.jpg" alt="Logo" style="height: 100px; vertical-align: middle; border-radius: 6px;">
       </a>
-      <h1>QSL Labels</h1>
+      <div class="header-title">
+        <h1>QSL Labels</h1>
+        <div class="header-sub">Print‑ready, aligned, fast</div>
+      </div>
       <span id="stats" class="stats">QSOs: 0 | Labels: 0 | Pages: 0</span>
       <div class="spacer"></div>
     </header>
@@ -729,7 +741,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
       <span class="chip"><label><input id="unlockCallX" type="checkbox"> Unlock Callsign X</label></span>
       <div class="spacer"></div>
       <button id="resetLayout">Reset</button>
-      <button id="applyLayout" class="primary">Apply</button>
+      <button id="applyLayout" class="primary">Apply Layout</button>
       <button id="closeEditor">Close</button>
     </div>
 
@@ -752,7 +764,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
 
       <canvas id="layoutEditor" style="display:none; margin-top:12px"></canvas>
 
-      <p class="help">Preview and print is WYSIWYG. Use <b>Actual size / 100%</b> when printing the downloaded PDF.</p>
+      <p class="help">What you see is what you print. Keep your printer at <b>Actual size / 100%</b> for perfect alignment.</p>
     </div>
   </main>
 </div>
@@ -1013,10 +1025,9 @@ function initQslRuleBuilder(){
   refreshQslRuleJoinStates();
 }
 const THEMES={
-  maritime:{ label:"Maritime Midnight", colorScheme:"dark", vars:{ '--bg':'#0b1724','--panel':'#0f1f2f','--panel-2':'#11263a','--ink':'#f0f7ff','--muted':'#8ba9c8','--border':'#1e3a56','--accent':'#2bb4d4','--accent-2':'#fdd384' } },
-  dusk:{ label:"Desert Dusk", colorScheme:"light", vars:{ '--bg':'#f6eee6','--panel':'#fff8f1','--panel-2':'#f2dfd0','--ink':'#473327','--muted':'#8c6f5e','--border':'#ead1c0','--accent':'#167287','--accent-2':'#f9a66c' } },
-  paper:{ label:"Classic Paper", colorScheme:"light", vars:{ '--bg':'#fdfbf7','--panel':'#ffffff','--panel-2':'#f5f1eb','--ink':'#302620','--muted':'#7d6d62','--border':'#dcd2c6','--accent':'#22577a','--accent-2':'#38a3a5' } },
-  seaside:{ label:"Seaside Daylight", colorScheme:"light", vars:{ '--bg':'#e8f8fb','--panel':'#ffffff','--panel-2':'#dff0f6','--ink':'#083049','--muted':'#5f93ad','--border':'#b3d7e6','--accent':'#0c6ca6','--accent-2':'#f26157' } },
+  printStudio:{ label:"Print Studio", colorScheme:"light", vars:{ '--bg':'#f6f2ec','--panel':'#ffffff','--panel-2':'#efe9e1','--ink':'#1f1a17','--muted':'#756b61','--border':'#e2d7cb','--accent':'#c2412d','--accent-2':'#2f5e4e','--ring':'#c2412d' } },
+  industrial:{ label:"Industrial Tool", colorScheme:"light", vars:{ '--bg':'#f2f4f7','--panel':'#ffffff','--panel-2':'#e7ecf2','--ink':'#1d2430','--muted':'#6f7c8c','--border':'#cfd7e2','--accent':'#2b4c7e','--accent-2':'#7a5c2e','--ring':'#2b4c7e' } },
+  modernLab:{ label:"Modern Lab", colorScheme:"dark", vars:{ '--bg':'#0c0f14','--panel':'#121823','--panel-2':'#161e2c','--ink':'#eef2f7','--muted':'#a2afc2','--border':'#253246','--accent':'#f25f4c','--accent-2':'#2cb67d','--ring':'#f25f4c' } },
 };
 const LABEL_TEMPLATES = [
   {
@@ -1395,14 +1406,14 @@ function initLabelTemplateSelect(){
 const SORT_MODES = ['CALL','PREFIX','DATE_ASC','DATE_DESC','FIFO'];
 const FIELD_TAG_WITH_ATTR = /<([A-Za-z0-9_]+):(\d+)(?::([^>]+))?>/ig;
 const PREFERRED_FIELD_ORDER = ['CALL','QSO_DATE','QSO_DATE_OFF','TIME_ON','TIME_OFF','BAND','MODE','FREQ'];
-let currentThemeName = 'maritime';
+let currentThemeName = 'industrial';
 let originalAdifHeader = '';
 let originalAdifRecords = [];
 let originalAdifHasHeader = false;
 let adifDownloadName = 'qsl_labels_updated.adi';
 function applyTheme(name, persist=true){
-  const resolved = Object.prototype.hasOwnProperty.call(THEMES, name) ? name : (currentThemeName || 'paper');
-  const theme = THEMES[resolved] || THEMES.paper;
+  const resolved = Object.prototype.hasOwnProperty.call(THEMES, name) ? name : (currentThemeName || 'industrial');
+  const theme = THEMES[resolved] || THEMES.industrial;
   currentThemeName = resolved;
   const root = document.documentElement;
   Object.entries(theme.vars).forEach(([key,value])=>{
@@ -1421,8 +1432,20 @@ function applyTheme(name, persist=true){
 function initTheme(){
   let saved=null;
   try{ saved=localStorage.getItem('qslTheme'); }catch(e){ saved=null; }
-  const initial = (saved && THEMES[saved]) ? saved : 'maritime';
+  const initial = (saved && THEMES[saved]) ? saved : 'industrial';
   applyTheme(initial, false);
+}
+function initReveal(){
+  const cards = document.querySelectorAll('.section, .footer-bar');
+  cards.forEach((el, idx)=>{
+    el.classList.add('reveal-on-load');
+    el.style.setProperty('--delay', `${idx * 70}ms`);
+  });
+  const preview = document.querySelector('.preview-wrap');
+  if(preview){
+    preview.classList.add('reveal-on-load');
+    preview.style.setProperty('--delay', `${cards.length * 70}ms`);
+  }
 }
 function downloadBlob(name, blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
 function setupHiDPICanvas(canvas, pageWpt, pageHpt, zoom){ const dpr=window.devicePixelRatio||1; const cssW=Math.round(pageWpt*zoom); const cssH=Math.round(pageHpt*zoom); canvas.style.width=cssW+"px"; canvas.style.height=cssH+"px"; canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr); const ctx=canvas.getContext('2d'); ctx.setTransform(canvas.width/pageWpt,0,0,canvas.height/pageHpt,0,0); return ctx; }
@@ -2184,7 +2207,7 @@ function readConfig(){
       dedupeMode
     }
   };
-  cfg.themeName = currentThemeName || 'paper';
+  cfg.themeName = currentThemeName || 'industrial';
   if(mode==='qslCard'){
     cfg.cols = 1;
     cfg.rows = 1;
@@ -2222,11 +2245,22 @@ function configWithoutFilters(cfg){
 /* ===== Preview & PDF use layout ===== */
 const canvas=document.getElementById('preview');
 let recs=[], rows=[], labels=[]; let currentPage=0; let adifFields=[]; let usingSample=true;
+let previewPulseTimer = null;
+function pulsePreview(){
+  const wrap = document.querySelector('.preview-wrap');
+  if(!wrap) return;
+  wrap.classList.remove('is-recomputing');
+  void wrap.offsetWidth;
+  wrap.classList.add('is-recomputing');
+  if(previewPulseTimer){ clearTimeout(previewPulseTimer); }
+  previewPulseTimer = setTimeout(()=>{ wrap.classList.remove('is-recomputing'); }, 600);
+}
 function computeStats(cfg, baseRows, filteredRows){
   const per = cfg.cols * cfg.rows;
   const pages = Math.max(1, Math.ceil(labels.length / per));
+  const labelCount = labels.filter(l=>l && l[1] && l[1].length).length;
   document.getElementById('pageInfo').textContent = `Page ${Math.min(currentPage+1,pages)} / ${pages}`;
-  document.getElementById('stats').textContent = `QSOs: ${filteredRows.length} | Labels: ${labels.filter(l=>l && l[1] && l[1].length).length} | Pages: ${pages}`;
+  document.getElementById('stats').textContent = `QSOs: ${filteredRows.length} | Labels: ${labelCount} | Pages: ${pages}`;
   document.getElementById('downloadBtn').disabled = (filteredRows.length===0);
   const adifBtn = document.getElementById('downloadAdifBtn');
   if(adifBtn){ adifBtn.disabled = (filteredRows.length===0); }
@@ -2367,6 +2401,7 @@ function recompute(){
   currentPage = clamp(currentPage, 0, pages-1);
   computeStats(cfg, rows, filtered);
   if(!editorMode){ renderOnePage(cfg, currentPage); }
+  pulsePreview();
 }
 async function downloadPDF() {
     const cfg = readConfig();
@@ -3203,6 +3238,7 @@ function closePicker(){ picker.style.display="none"; }
 resetDefaultColumns();
 syncColArraysToDefaults();
 initTheme();
+initReveal();
 initCollapsibles();
 initQslRuleBuilder();
 initLabelTemplateSelect();
