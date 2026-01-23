@@ -1,8 +1,8 @@
 # QSL Label Generator — Avery Zweckform 3664 (or any other)
 
-Github URL: https://github.com/s53zo/ADIF-to-QSL-label
+Github URL: [https://github.com/s53zo/ADIF-to-QSL-label](https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html)
 
-There is a html and python version of the tool.
+There is a html and python version of the tool. But use html, python is outdated.
 
 Generate **print-ready QSL labels** from your ADIF log.
 
