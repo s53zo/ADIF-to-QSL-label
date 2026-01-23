@@ -194,6 +194,11 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
 .download-buttons button{width:100%}
 .help{font-size:11px; color:var(--muted)}
 #downloadSection .help{text-align:center}
+.inline-field{display:flex; flex-direction:column; gap:8px}
+.inline-field input[type="text"]{width:100%}
+.footer-field-controls{display:flex; gap:8px; align-items:center}
+.footer-field-controls select{flex:1; min-width:0}
+.footer-field-controls button{flex:0 0 auto; padding:9px 12px}
 @keyframes revealIn{from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:translateY(0)}}
 @keyframes previewPulse{0%{transform:scale(0.995); box-shadow:0 0 0 rgba(0,0,0,0)} 100%{transform:scale(1); box-shadow:var(--shadow)}}
 .reveal-on-load{opacity:0; transform:translateY(12px); animation:revealIn .65s ease forwards; animation-delay:var(--delay,0ms)}
@@ -505,8 +510,27 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
               <div class="row"><label>Padding X (mm)</label><input id="padX" type="number" step="0.5" value="2"></div>
               <div class="row"><label>Padding Y (mm)</label><input id="padY" type="number" step="0.5" value="2"></div>
               <div class="row"><label>"To Radio" text</label><input id="toRadioText" type="text" value="To Radio"></div>
-              <div class="row"><label>Left footer text</label><input id="footerL" type="text" value="SY: Blondie, South Adriatic sea"></div>
-              <div class="row"><label>Right footer text</label><input id="footerR" type="text" value="TNX & 73"></div>
+              <div class="row">
+                <label>Left footer text</label>
+                <div class="inline-field">
+                  <input id="footerL" type="text" value="SY: Blondie, South Adriatic sea">
+                  <div class="footer-field-controls">
+                    <select class="footer-field-select" data-target="footerL"></select>
+                    <button type="button" class="footer-insert-btn" data-target="footerL">Insert field</button>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <label>Right footer text</label>
+                <div class="inline-field">
+                  <input id="footerR" type="text" value="TNX & 73">
+                  <div class="footer-field-controls">
+                    <select class="footer-field-select" data-target="footerR"></select>
+                    <button type="button" class="footer-insert-btn" data-target="footerR">Insert field</button>
+                  </div>
+                </div>
+              </div>
+              <p class="help">Use tokens like {CALL} or {DATE}. Example: TNX {CALL} 73</p>
               <div class="row"><label>Right footer shift (mm)</label><input id="footerRShift" type="number" step="0.5" value="5"></div>
               <div class="row"><label>Footer Y shift (mm)</label><input id="footerYShift" type="number" step="0.5" value="2"></div>
               <div class="row">
@@ -706,9 +730,9 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="modernLab">Modern Lab</option>
           </select>
         </div>
-        <div class="version">Version v5.14</div>
+        <div class="version">Version v5.15</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
-        <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP</div>
+        <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP, K6TRK</div>
       </div>
     </div>
   </aside>
@@ -2056,8 +2080,16 @@ function getCellText(row, source, cfg){
     const raw = row.FREQ ?? row[key];
     return fmtFreq(raw, cfg?.freqDecimals);
   }
+  if(key==="CALL") return row.CALL || "";
   if(["DATE","TIME","BAND","MODE","QSL"].includes(key)) return row[key]||"";
   return row[key]||"";
+}
+function formatTemplateText(text, row, cfg){
+  if(!text) return "";
+  return text.replace(/\{([A-Z0-9_]+)\}/gi, (_, tag) => {
+    if(!row) return "";
+    return getCellText(row, tag, cfg) || (row[tag.toUpperCase()] ?? "");
+  });
 }
 function computeColWidths(ctx, cfg, qsoRows, labelWpt){
   const cols=cfg.columns; const n=cols.length;
@@ -2357,11 +2389,14 @@ function renderOnePage(cfg, pageIdx){
         cx2+=colW[i];
       }
     }
+    const footerRow = chunk && chunk.length ? chunk[0] : null;
+    const footerLText = formatTemplateText(cfg.footerL, footerRow, cfg);
+    const footerRText = formatTemplateText(cfg.footerR, footerRow, cfg);
     ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
     ctx.textAlign="left";
-    ctx.fillText(cfg.footerL, x0 + mm2pt(L.footerL.x_mm), y0 + mm2pt(L.footerL.y_mm));
+    ctx.fillText(footerLText, x0 + mm2pt(L.footerL.x_mm), y0 + mm2pt(L.footerL.y_mm));
     ctx.textAlign="right";
-    ctx.fillText(cfg.footerR, x0 + mm2pt(L.footerR.x_mm), y0 + mm2pt(L.footerR.y_mm));
+    ctx.fillText(footerRText, x0 + mm2pt(L.footerR.x_mm), y0 + mm2pt(L.footerR.y_mm));
     ctx.textAlign="left";
     ctx.restore();
   }
@@ -2583,10 +2618,13 @@ async function downloadPDF() {
                     colAccumPt2 += colWpt[i];
                 }
             }
+            const footerRow = chunk && chunk.length ? chunk[0] : null;
+            const footerLText = formatTemplateText(cfg.footerL, footerRow, cfg);
+            const footerRText = formatTemplateText(cfg.footerR, footerRow, cfg);
             const footerLPos = toPage(L.footerL.x_mm, L.footerL.y_mm);
-            pdfText(cfg.footerL, footerLPos.x, footerLPos.y, "left", "helvetica", "normal", cfg.sizeFooter, rotation);
+            pdfText(footerLText, footerLPos.x, footerLPos.y, "left", "helvetica", "normal", cfg.sizeFooter, rotation);
             const footerRPos = toPage(L.footerR.x_mm, L.footerR.y_mm);
-            pdfText(cfg.footerR, footerRPos.x, footerRPos.y, "right", "helvetica", "normal", cfg.sizeFooter, rotation);
+            pdfText(footerRText, footerRPos.x, footerRPos.y, "right", "helvetica", "normal", cfg.sizeFooter, rotation);
         }
     }
     const baseName = cfg.mode === 'qslCard' ? 'qsl_card' : 'qsl_labels';
@@ -2755,6 +2793,7 @@ function loadSample(){
   rows = buildRows(recs); // Process it into rows
   const tags=new Set(); rows.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
   adifFields=Array.from(tags).sort();
+  refreshFooterFieldSelects();
   usingSample=true;
   document.querySelectorAll('.col-row .col-s').forEach(sel=>{
     const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
@@ -2813,9 +2852,17 @@ function renderEditor(){
   ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
   ctx.fillText("2025-09-09  12:34  20M   CW   TNX", mm2pt(cfg.padXmm), mm2pt(L.table.y_mm));
   ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
-  ctx.fillText(cfg.footerL || "Left footer", mm2pt(L.footerL.x_mm), mm2pt(L.footerL.y_mm));
+  const sampleFooterRow = (rows && rows.length) ? rows[0] : {
+    CALL:"SAMPLECALL",
+    DATE:"2025-09-09",
+    TIME:"12:34",
+    BAND:"20M",
+    MODE:"CW",
+    QSL:"TNX"
+  };
+  ctx.fillText(formatTemplateText(cfg.footerL, sampleFooterRow, cfg) || "Left footer", mm2pt(L.footerL.x_mm), mm2pt(L.footerL.y_mm));
   ctx.textAlign="right";
-  ctx.fillText(cfg.footerR || "TNX & 73", mm2pt(L.footerR.x_mm), mm2pt(L.footerR.y_mm));
+  ctx.fillText(formatTemplateText(cfg.footerR, sampleFooterRow, cfg) || "TNX & 73", mm2pt(L.footerR.x_mm), mm2pt(L.footerR.y_mm));
   ctx.textAlign="left";
   drawHandle(ctx, mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm), "toRadio");
   drawHandle(ctx, callXpt,              mm2pt(L.callsign.y_mm), "callsign", callIsCentered ? "y" : "xy");
@@ -3073,6 +3120,46 @@ function autoResizeOffsetCSVs(){
   function fitCsv(id,len){ const arr=parseCSVfloats(document.getElementById(id).value); if(arr.length<len) arr.push(...Array(len-arr.length).fill(0)); if(arr.length>len) arr.length=len; document.getElementById(id).value = arr.join(','); }
   fitCsv('colOffsets', cols); fitCsv('rowOffsets', rowsCount);
 }
+function refreshFooterFieldSelects(){
+  const selects = document.querySelectorAll('.footer-field-select');
+  if(!selects.length) return;
+  const defaults = ["CALL","DATE","TIME","BAND","MODE","QSL","FREQ"];
+  const seen = new Set();
+  const options = [];
+  defaults.forEach(tag=>{ const up=tag.toUpperCase(); if(!seen.has(up)){ seen.add(up); options.push(up); } });
+  (adifFields || []).forEach(tag=>{
+    const up = String(tag).toUpperCase();
+    if(!up || seen.has(up)) return;
+    seen.add(up);
+    options.push(up);
+  });
+  selects.forEach(sel=>{
+    const keep = sel.value;
+    sel.innerHTML = "";
+    const placeholder = document.createElement('option');
+    placeholder.value = "";
+    placeholder.textContent = "Insert ADIF field…";
+    sel.appendChild(placeholder);
+    options.forEach(tag=>{
+      const opt = document.createElement('option');
+      opt.value = tag;
+      opt.textContent = tag;
+      sel.appendChild(opt);
+    });
+    if(keep) sel.value = keep;
+  });
+}
+function insertFooterToken(targetId, token){
+  if(!token) return;
+  const input = document.getElementById(targetId);
+  if(!input) return;
+  const insert = `{${token}}`;
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.setRangeText(insert, start, end, "end");
+  input.dispatchEvent(new Event('input', { bubbles:true }));
+  input.focus();
+}
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
     if(["adifFile","downloadBtn","downloadAdifBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat","addQslRule","labelTemplate"].includes(el.id)) return;
@@ -3133,6 +3220,7 @@ function bindInputs(){
     adifDownloadName = `${stem || 'adif'}_qsl_updated.adi`;
     const tags=new Set(); recs.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
     adifFields=Array.from(tags).sort();
+    refreshFooterFieldSelects();
     usingSample=false; currentPage=0;
     document.querySelectorAll('.col-row .col-s').forEach(sel=>{
       const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
@@ -3155,6 +3243,16 @@ function bindInputs(){
   document.getElementById('downloadBtn').onclick=downloadPDF;
   const dlAdifButton = document.getElementById('downloadAdifBtn');
   if(dlAdifButton){ dlAdifButton.onclick=downloadUpdatedAdif; }
+  document.querySelectorAll('.footer-insert-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const target = btn.dataset.target;
+      const select = document.querySelector(`.footer-field-select[data-target="${target}"]`);
+      const token = select ? select.value : "";
+      if(!token) return;
+      insertFooterToken(target, token);
+      if(select) select.value = "";
+    });
+  });
   const adifTooltip = document.querySelector('.download-tooltip');
   if(adifTooltip){
     let tooltipTimer;
