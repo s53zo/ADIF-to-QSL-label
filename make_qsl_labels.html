@@ -245,7 +245,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
               <option value="FIFO">As in ADIF (FIFO)</option>
             </select>
           </div>
-          <div id="adifWarning" class="warn">Sample data is shown. Upload your ADIF to replace it.</div>
+          <div id="adifWarning" class="warn">Sample data is shown. Upload your ADIF in the Data menu or Drag & Drop the file to this window to use your own QSOs.</div>
         </div>
       </div>
 
@@ -735,7 +735,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
             <option value="modernLab">Modern Lab</option>
           </select>
         </div>
-        <div class="version">Version v5.17</div>
+        <div class="version">Version v5.18</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP, K6TRK</div>
       </div>
@@ -2310,7 +2310,7 @@ function computeStats(cfg, baseRows, filteredRows){
   if(adifBtn){ adifBtn.disabled = (filteredRows.length===0); }
   const warn = document.getElementById('adifWarning');
   const banner = document.getElementById('banner');
-  if(usingSample){ warn.textContent = "Sample data is shown. Upload your ADIF to replace it."; warn.style.display="block"; banner.style.display="block"; }
+  if(usingSample){ warn.textContent = "Sample data is shown. Upload your ADIF in the Data menu or Drag & Drop the file to this window to use your own QSOs."; warn.style.display="block"; banner.style.display="block"; }
   else{ warn.style.display="none"; banner.style.display="none"; }
 }
 function computeLabelX0Y0(cfg, col, rowI, labelWpt, labelHpt){
