@@ -199,6 +199,11 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
 .footer-field-controls{display:flex; gap:8px; align-items:center}
 .footer-field-controls select{flex:1; min-width:0}
 .footer-field-controls button{flex:0 0 auto; padding:9px 12px}
+.drop-overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(31,26,23,0.6); z-index:300}
+.drop-panel{display:flex; flex-direction:column; gap:8px; align-items:center; padding:22px 26px; border-radius:16px; border:2px dashed var(--accent); background:var(--panel); box-shadow:var(--shadow); text-align:center; max-width:440px}
+.drop-title{font-family:var(--font-display); font-size:20px; letter-spacing:0.02em}
+.drop-sub{font-size:12px; color:var(--muted)}
+body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)}
 @keyframes revealIn{from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:translateY(0)}}
 @keyframes previewPulse{0%{transform:scale(0.995); box-shadow:0 0 0 rgba(0,0,0,0)} 100%{transform:scale(1); box-shadow:var(--shadow)}}
 .reveal-on-load{opacity:0; transform:translateY(12px); animation:revealIn .65s ease forwards; animation-delay:var(--delay,0ms)}
@@ -730,7 +735,7 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
             <option value="modernLab">Modern Lab</option>
           </select>
         </div>
-        <div class="version">Version v5.15</div>
+        <div class="version">Version v5.16</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP, K6TRK</div>
       </div>
@@ -810,6 +815,13 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
       <button id="pickCancel">Cancel</button>
       <button id="pickOk" class="primary">Add</button>
     </div>
+  </div>
+</div>
+
+<div id="dropOverlay" class="drop-overlay" aria-hidden="true">
+  <div class="drop-panel" role="presentation">
+    <div class="drop-title">Drag and drop your log</div>
+    <div class="drop-sub">Supported: .adi, .adif, .txt</div>
   </div>
 </div>
 
@@ -3160,6 +3172,62 @@ function insertFooterToken(targetId, token){
   input.dispatchEvent(new Event('input', { bubbles:true }));
   input.focus();
 }
+async function loadAdifFile(f){
+  if(!f) return;
+  if(!/\.(adi|adif|txt)$/i.test(f.name || "")){
+    alert("Unsupported file type. Please drop a .adi, .adif, or .txt file.");
+    return;
+  }
+  const txt=await f.text();
+  const normalized = txt.replace(/\r\n?/g,"\n");
+  const eohMatch = normalized.match(/<eoh>/i);
+  let header = "";
+  let body = normalized;
+  if(eohMatch){
+    header = normalized.slice(0, eohMatch.index);
+    body = normalized.slice(eohMatch.index + eohMatch[0].length);
+    originalAdifHasHeader = true;
+  }else{
+    header = "";
+    body = normalized;
+    originalAdifHasHeader = false;
+  }
+  const rawChunks = body.split(/<eor>/ig);
+  const recordStrings = [];
+  rawChunks.forEach(chunk=>{
+    const trimmed = chunk.trim();
+    if(trimmed) recordStrings.push(trimmed);
+  });
+  const recsRaw=parseADIF(normalized); recs=recsRaw; rows=buildRows(recs);
+  originalAdifHeader = header.replace(/\s+$/,'');
+  originalAdifRecords = recordStrings.length === recsRaw.length ? recordStrings : recsRaw.map(rec=>serializeRecordFromObject(rec));
+  if(originalAdifRecords.length !== recsRaw.length){
+    originalAdifRecords = recsRaw.map(rec=>serializeRecordFromObject(rec));
+  }
+  const stem = f.name ? f.name.replace(/\.(adi|adif|txt)$/i, '') : 'adif';
+  adifDownloadName = `${stem || 'adif'}_qsl_updated.adi`;
+  const tags=new Set(); recs.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
+  adifFields=Array.from(tags).sort();
+  refreshFooterFieldSelects();
+  usingSample=false; currentPage=0;
+  document.querySelectorAll('.col-row .col-s').forEach(sel=>{
+    const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
+    [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
+    if(keep) sel.value=keep;
+  });
+  recompute();
+  try {
+    const uniqueCalls = new Set((rows||[]).map(r=>r.CALL)).size;
+    gtag('event', 'adif_upload', {
+      file_name: f.name,
+      file_ext: (f.name.split('.').pop()||'').toLowerCase(),
+      file_size_bytes: f.size || 0,
+      qso_rows: rows?.length || 0,
+      unique_calls: uniqueCalls,
+      sample_data_used: usingSample ? 'yes' : 'no'
+    });
+  } catch(e){ /* no-op */ }
+}
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
     if(["adifFile","downloadBtn","downloadAdifBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat","addQslRule","labelTemplate"].includes(el.id)) return;
@@ -3190,55 +3258,8 @@ function bindInputs(){
   document.getElementById('prevPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.max(0,currentPage-1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
   document.getElementById('nextPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.min(pages-1,currentPage+1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
   document.getElementById('adifFile').addEventListener('change', async (e)=>{
-    const f=e.target.files?.[0]; if(!f) return; const txt=await f.text();
-    const normalized = txt.replace(/\r\n?/g,"\n");
-    const eohMatch = normalized.match(/<eoh>/i);
-    let header = "";
-    let body = normalized;
-    if(eohMatch){
-      header = normalized.slice(0, eohMatch.index);
-      body = normalized.slice(eohMatch.index + eohMatch[0].length);
-      originalAdifHasHeader = true;
-    }else{
-      header = "";
-      body = normalized;
-      originalAdifHasHeader = false;
-    }
-    const rawChunks = body.split(/<eor>/ig);
-    const recordStrings = [];
-    rawChunks.forEach(chunk=>{
-      const trimmed = chunk.trim();
-      if(trimmed) recordStrings.push(trimmed);
-    });
-    const recsRaw=parseADIF(normalized); recs=recsRaw; rows=buildRows(recs);
-    originalAdifHeader = header.replace(/\s+$/,'');
-    originalAdifRecords = recordStrings.length === recsRaw.length ? recordStrings : recsRaw.map(rec=>serializeRecordFromObject(rec));
-    if(originalAdifRecords.length !== recsRaw.length){
-      originalAdifRecords = recsRaw.map(rec=>serializeRecordFromObject(rec));
-    }
-    const stem = f.name ? f.name.replace(/\.(adi|adif|txt)$/i, '') : 'adif';
-    adifDownloadName = `${stem || 'adif'}_qsl_updated.adi`;
-    const tags=new Set(); recs.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
-    adifFields=Array.from(tags).sort();
-    refreshFooterFieldSelects();
-    usingSample=false; currentPage=0;
-    document.querySelectorAll('.col-row .col-s').forEach(sel=>{
-      const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
-      [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
-      if(keep) sel.value=keep;
-    });
-    recompute();
-    try {
-      const uniqueCalls = new Set((rows||[]).map(r=>r.CALL)).size;
-      gtag('event', 'adif_upload', {
-        file_name: f.name,
-        file_ext: (f.name.split('.').pop()||'').toLowerCase(),
-        file_size_bytes: f.size || 0,
-        qso_rows: rows?.length || 0,
-        unique_calls: uniqueCalls,
-        sample_data_used: usingSample ? 'yes' : 'no'
-      });
-    } catch(e){ /* no-op */ }
+    const f=e.target.files?.[0];
+    await loadAdifFile(f);
   });
   document.getElementById('downloadBtn').onclick=downloadPDF;
   const dlAdifButton = document.getElementById('downloadAdifBtn');
@@ -3342,6 +3363,52 @@ initQslRuleBuilder();
 initLabelTemplateSelect();
 bindInputs();
 loadSample();
+
+/* ===== Drag & drop ADIF ===== */
+let dragDepth = 0;
+const dropOverlay = document.getElementById('dropOverlay');
+function isFileDrag(e){
+  return Array.from(e.dataTransfer?.types || []).includes('Files');
+}
+function setDropActive(active){
+  document.body.classList.toggle('drop-active', active);
+  if(dropOverlay){ dropOverlay.style.display = active ? "flex" : "none"; }
+}
+window.addEventListener('dragenter', (e)=>{
+  if(editorMode) return;
+  if(!isFileDrag(e)) return;
+  e.preventDefault();
+  dragDepth += 1;
+  setDropActive(true);
+});
+window.addEventListener('dragover', (e)=>{
+  if(editorMode) return;
+  if(!isFileDrag(e)) return;
+  e.preventDefault();
+  if(e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+});
+window.addEventListener('dragleave', (e)=>{
+  if(editorMode) return;
+  if(!isFileDrag(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if(dragDepth === 0) setDropActive(false);
+});
+window.addEventListener('dragend', ()=>{
+  dragDepth = 0;
+  setDropActive(false);
+});
+window.addEventListener('drop', async (e)=>{
+  if(!isFileDrag(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  setDropActive(false);
+  if(editorMode){
+    alert("Close the layout editor to drop a file.");
+    return;
+  }
+  const f = e.dataTransfer?.files?.[0];
+  await loadAdifFile(f);
+});
 </script>
 </body>
 </html>
