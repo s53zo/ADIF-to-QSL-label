@@ -9,7 +9,7 @@
   gtag('config', 'G-PZCLRVBKKT');
 </script>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://www.google-analytics.com; connect-src https://www.google-analytics.com; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://www.google-analytics.com; connect-src 'self' https://www.google-analytics.com https://azure.s53m.com https://www.country-files.com https://api.allorigins.win https://corsproxy.io; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self';" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#ffffff" />
 <title>ADIF to QSL Labels helper</title>
@@ -858,6 +858,207 @@ function parseCSVfloats(s) {
     });
 }
 function parseCSVstrings(s){ if(!s) return []; return s.split(",").map(x=>x.trim().toUpperCase()).filter(Boolean); }
+const CORS_PROXIES = [
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+];
+const CTY_URLS = [
+  'https://azure.s53m.com/cors/cty.dat',
+  'https://www.country-files.com/cty/cty.dat',
+  'cty.dat',
+  './cty.dat',
+  '/cty.dat',
+  'CTY.DAT',
+  './CTY.DAT',
+  '/CTY.DAT'
+];
+const CTY_CACHE_LIMIT = 10000;
+function isLocalHost(){
+  if (typeof window === 'undefined' || !window.location) return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+}
+function buildFetchUrls(urls){
+  const remotes = [];
+  const locals = [];
+  urls.forEach((url) => {
+    if (/^https?:\/\//i.test(url)) remotes.push(url);
+    else locals.push(url);
+  });
+  const proxies = [];
+  remotes.forEach((url) => {
+    CORS_PROXIES.forEach((proxy) => proxies.push(proxy(url)));
+  });
+  return remotes.concat(proxies, locals);
+}
+function buildLocalFirstUrls(urls){
+  const remotes = [];
+  const locals = [];
+  urls.forEach((url) => {
+    if (/^https?:\/\//i.test(url)) remotes.push(url);
+    else locals.push(url);
+  });
+  return locals.concat(remotes);
+}
+async function fetchResource(url, onStatus){
+  try{
+    onStatus('loading');
+    const res = await fetch(url, { cache: 'no-store' });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    onStatus('ok');
+    return text;
+  }catch(err){
+    console.error('Fetch failed:', url, err);
+    onStatus('error');
+    return { error: err.message || 'Load failed' };
+  }
+}
+async function fetchWithFallback(urls, onStatus){
+  let lastError = null;
+  for(const url of urls){
+    const res = await fetchResource(url, (status)=>onStatus(status, url));
+    if(res && typeof res === 'object' && res.error){
+      lastError = res.error;
+      continue;
+    }
+    return { text: res, url };
+  }
+  return { error: lastError || 'All sources failed' };
+}
+function parseCtyDat(text){
+  if(!text || /<html|<body/i.test(text)) return [];
+  const lines = text.split(/\r?\n/);
+  const entries = [];
+  const parseToken = (tok, base, isPrimary) => {
+    const cleaned = tok.replace(/[:\s]+$/g, '');
+    const m = cleaned.match(/^(=)?([^(\[\s]+)(?:\((\d+)\))?(?:\[(\d+)\])?$/);
+    if(!m) return null;
+    const [, exactMark, bodyRaw, cqOverride, ituOverride] = m;
+    const body = bodyRaw.replace(/^\*+/, '');
+    if(!body) return null;
+    return {
+      prefix: body.toUpperCase(),
+      exact: exactMark === '=',
+      primary: Boolean(isPrimary),
+      country: base.country,
+      cqZone: cqOverride ? parseInt(cqOverride, 10) : base.cqZone,
+      ituZone: ituOverride ? parseInt(ituOverride, 10) : base.ituZone,
+      continent: base.continent,
+      lat: base.lat,
+      lon: base.lon,
+      tz: base.tz
+    };
+  };
+  let buffer = '';
+  for(const rawLine of lines){
+    const line = rawLine.trim();
+    if(!line || line.startsWith('#')) continue;
+    buffer += (buffer ? ' ' : '') + line;
+    while(buffer.includes(';')){
+      const [entryChunk, restChunk] = buffer.split(/;\s*/, 2);
+      buffer = restChunk || '';
+      const entryLine = entryChunk.trim();
+      if(!entryLine) continue;
+      const fields = entryLine.split(':');
+      if(fields.length < 8) continue;
+      const [name, cqZone, ituZone, continent, lat, lon, tz, ...restFields] = fields;
+      const prefixBlock = restFields.join(':').replace(/;+$/, '');
+      const prefixes = prefixBlock.split(/[, \t]+/).filter(Boolean);
+      const lonVal = parseFloat(lon);
+      const base = {
+        country: name,
+        cqZone: parseInt(cqZone, 10) || null,
+        ituZone: parseInt(ituZone, 10) || null,
+        continent: (continent || '').trim() || null,
+        lat: parseFloat(lat) || null,
+        lon: Number.isFinite(lonVal) ? -lonVal : null,
+        tz: parseFloat(tz) || null
+      };
+      let primarySet = false;
+      for(const p of prefixes){
+        const parsed = parseToken(p.trim(), base, !primarySet);
+        if(parsed){
+          entries.push(parsed);
+          if(!primarySet) primarySet = true;
+        }
+      }
+    }
+  }
+  const sorted = entries.sort((a,b)=>{
+    if(a.exact !== b.exact) return a.exact ? -1 : 1;
+    return b.prefix.length - a.prefix.length;
+  });
+  if(sorted.length > 0) return sorted;
+  const looseEntries = [];
+  for(const raw of lines){
+    const line = raw.trim();
+    if(!line || line.startsWith('#')) continue;
+    const firstColon = line.indexOf(':');
+    if(firstColon === -1) continue;
+    const countryFields = line.split(':');
+    if(countryFields.length < 7) continue;
+    const [name, cqZone, ituZone, continent, lat, lon, tz, restFields] = countryFields;
+    const suffix = restFields ? restFields.split(/[;,]/) : [];
+    const lonVal = parseFloat(lon);
+    const base = {
+      country: name,
+      cqZone: parseInt(cqZone, 10) || null,
+      ituZone: parseInt(ituZone, 10) || null,
+      continent: (continent || '').trim() || null,
+      lat: parseFloat(lat) || null,
+      lon: Number.isFinite(lonVal) ? -lonVal : null,
+      tz: parseFloat(tz) || null
+    };
+    let primarySet = false;
+    for(const t of suffix){
+      const parsed = parseToken(t.trim(), base, !primarySet);
+      if(parsed){
+        looseEntries.push(parsed);
+        if(!primarySet) primarySet = true;
+      }
+    }
+  }
+  return looseEntries.sort((a,b)=>{
+    if(a.exact !== b.exact) return a.exact ? -1 : 1;
+    return b.prefix.length - a.prefix.length;
+  });
+}
+function initCtyFetch(){
+  const useLocalFirst = isLocalHost();
+  const ctyUrls = useLocalFirst ? buildLocalFirstUrls(CTY_URLS) : buildFetchUrls(CTY_URLS);
+  fetchWithFallback(ctyUrls, (status, url)=>{
+    ctyStatus = status;
+    if(status === 'error' || status === 'loading') ctySource = url;
+  }).then((res)=>{
+    if(res && res.error){
+      ctyError = res.error;
+      ctyTable = null;
+      ctyPrefixCache = new Map();
+      return;
+    }
+    const text = res && res.text ? res.text : null;
+    ctySource = res && res.url ? res.url : ctySource;
+    if(text){
+      const table = parseCtyDat(text);
+      if(table && table.length){
+        ctyTable = table;
+        ctyError = null;
+        ctyStatus = 'ok';
+        ctyPrefixCache = new Map();
+        if(recs && recs.length){
+          rows = buildRows(recs);
+          recompute();
+        }
+      }else{
+        ctyTable = null;
+        ctyError = 'Parsed 0 prefixes from cty.dat';
+        ctyStatus = 'error';
+        ctyPrefixCache = new Map();
+      }
+    }
+  });
+}
 const QSL_RULE_FIELDS = [
   { value:"QSL_RCVD", label:"Paper received (QSL_RCVD)" },
   { value:"LOTW_QSL_RCVD", label:"LoTW received (LOTW_QSL_RCVD)" },
@@ -1624,6 +1825,29 @@ function callFilterVariants(call){
   }
   return Array.from(variants);
 }
+function lookupCtyEntry(call){
+  if(!ctyTable || !call) return null;
+  const key = String(call).toUpperCase().trim();
+  if(!key) return null;
+  if(ctyPrefixCache.has(key)) return ctyPrefixCache.get(key);
+  const variants = callFilterVariants(key);
+  const variantList = (variants && variants.length) ? variants : [key];
+  let found = null;
+  for(const entry of ctyTable){
+    if(entry.exact){
+      if(variantList.some(v=>v === entry.prefix)){
+        found = entry;
+        break;
+      }
+    }else if(variantList.some(v=>v.startsWith(entry.prefix))){
+      found = entry;
+      break;
+    }
+  }
+  if(ctyPrefixCache.size > CTY_CACHE_LIMIT) ctyPrefixCache.clear();
+  ctyPrefixCache.set(key, found);
+  return found;
+}
 function bandFromFreq(freq){
   if(!freq) return "";
   const f=parseFloat(freq);
@@ -1776,9 +2000,15 @@ function buildRows(recs){
     const dxccRaw = (r.DXCC||"").toString().trim();
     const dxccParsed = dxccRaw ? parseInt(dxccRaw,10) : NaN;
     const dxccNum = Number.isFinite(dxccParsed) ? dxccParsed : null;
-    const dxccCountry = (r.COUNTRY || r.APP_DXKEEPER_COUNTRY || "").toString().trim();
+    let dxccCountry = (r.COUNTRY || r.APP_DXKEEPER_COUNTRY || "").toString().trim();
     const callPrefix = deriveCallPrefix(call);
-    const dxccPrefix = (r.APP_DXKEEPER_DXCCPREFIX || r.PFX || callPrefix || "").toString().trim().toUpperCase();
+    let dxccPrefix = (r.APP_DXKEEPER_DXCCPREFIX || r.PFX || "").toString().trim().toUpperCase();
+    const ctyEntry = lookupCtyEntry(call);
+    if(ctyEntry){
+      if(!dxccCountry) dxccCountry = ctyEntry.country || dxccCountry;
+      if(!dxccPrefix) dxccPrefix = ctyEntry.prefix || dxccPrefix;
+    }
+    if(!dxccPrefix) dxccPrefix = callPrefix || "";
     const row = { ...r };
     row.CALL = call;
     row._CALL_VARIANTS = callFilterVariants(call);
@@ -2288,6 +2518,11 @@ function configWithoutFilters(cfg){
 
 /* ===== Preview & PDF use layout ===== */
 const canvas=document.getElementById('preview');
+let ctyTable=null;
+let ctyStatus='pending';
+let ctyError=null;
+let ctySource=null;
+let ctyPrefixCache=new Map();
 let recs=[], rows=[], labels=[]; let currentPage=0; let adifFields=[]; let usingSample=true;
 let previewPulseTimer = null;
 function pulsePreview(){
@@ -3379,6 +3614,7 @@ initCollapsibles();
 initQslRuleBuilder();
 initLabelTemplateSelect();
 bindInputs();
+initCtyFetch();
 loadSample();
 
 /* ===== Drag & drop ADIF ===== */
