@@ -233,7 +233,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
           <p class="section-hint">Drop your ADIF log or try the sample. Tweak the columns below if you want RST or custom fields.</p>
           <div class="row">
             <label>ADIF log</label>
-            <input id="adifFile" type="file" accept=".adi,.adif,.txt" />
+            <input id="adifFile" type="file" accept=".adi,.adif,.txt,.cbr,.log" />
           </div>
           <div class="row">
             <label>Sort order</label>
@@ -821,7 +821,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
 <div id="dropOverlay" class="drop-overlay" aria-hidden="true">
   <div class="drop-panel" role="presentation">
     <div class="drop-title">Drag and drop your log</div>
-    <div class="drop-sub">Supported: .adi, .adif, .txt</div>
+    <div class="drop-sub">Supported: .adi, .adif, .txt, .cbr, .log</div>
   </div>
 </div>
 
@@ -3174,7 +3174,7 @@ function insertFooterToken(targetId, token){
 }
 async function loadAdifFile(f){
   if(!f) return;
-  if(!/\.(adi|adif|txt)$/i.test(f.name || "")){
+  if(!/\.(adi|adif|txt|cbr|log)$/i.test(f.name || "")){
     alert("Unsupported file type. Please drop a .adi, .adif, or .txt file.");
     return;
   }
@@ -3204,7 +3204,7 @@ async function loadAdifFile(f){
   if(originalAdifRecords.length !== recsRaw.length){
     originalAdifRecords = recsRaw.map(rec=>serializeRecordFromObject(rec));
   }
-  const stem = f.name ? f.name.replace(/\.(adi|adif|txt)$/i, '') : 'adif';
+  const stem = f.name ? f.name.replace(/\.(adi|adif|txt|cbr|log)$/i, '') : 'adif';
   adifDownloadName = `${stem || 'adif'}_qsl_updated.adi`;
   const tags=new Set(); recs.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
   adifFields=Array.from(tags).sort();
