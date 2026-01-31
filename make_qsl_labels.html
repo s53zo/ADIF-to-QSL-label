@@ -277,7 +277,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
           </div>
           <div class="row"><label>Bands (CSV)</label><input id="fBands" type="text" placeholder="e.g. 20M,40M"></div>
           <div class="row"><label>Modes (CSV)</label><input id="fModes" type="text" placeholder="e.g. CW,SSB,FT8"></div>
-          <div class="row"><label>DXCC / Prefix / Callsign (CSV)</label><input id="fDxcc" type="text" placeholder="e.g. JA, DL, S53ZO"></div>
+          <div class="row"><label>DXCC/CALLSIGN</label><input id="fDxcc" type="text" placeholder="e.g. JA, DL, S53ZO"></div>
           <div class="row qsl-filter-row">
             <label>QSL status filters</label>
             <div class="qsl-rule-builder">
@@ -735,7 +735,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
             <option value="modernLab">Modern Lab</option>
           </select>
         </div>
-        <div class="version">Version v5.19</div>
+        <div class="version">Version v5.20</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP, K6TRK</div>
       </div>
@@ -858,6 +858,17 @@ function parseCSVfloats(s) {
     });
 }
 function parseCSVstrings(s){ if(!s) return []; return s.split(",").map(x=>x.trim().toUpperCase()).filter(Boolean); }
+function splitDxccCallTokens(input){
+  const tokens = parseCSVstrings(input);
+  const dxccTokens = new Set();
+  const callTokens = new Set();
+  tokens.forEach(tok=>{
+    if(!tok) return;
+    if(tok.length >= 4) callTokens.add(tok);
+    else dxccTokens.add(tok);
+  });
+  return { dxccTokens, callTokens };
+}
 const CORS_PROXIES = [
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -1024,6 +1035,27 @@ function parseCtyDat(text){
     return b.prefix.length - a.prefix.length;
   });
 }
+function buildCtyPrimaryPrefixMap(table){
+  const map = new Map();
+  if(!table || !table.length) return map;
+  for(const entry of table){
+    if(!entry || !entry.country || !entry.prefix) continue;
+    const key = entry.country.toUpperCase();
+    if(entry.primary && !map.has(key)){
+      map.set(key, entry.prefix);
+    }
+  }
+  for(const entry of table){
+    if(!entry || !entry.country || !entry.prefix) continue;
+    const key = entry.country.toUpperCase();
+    if(map.has(key)) continue;
+    const current = map.get(key);
+    if(!current || entry.prefix.length < current.length){
+      map.set(key, entry.prefix);
+    }
+  }
+  return map;
+}
 function initCtyFetch(){
   const useLocalFirst = isLocalHost();
   const ctyUrls = useLocalFirst ? buildLocalFirstUrls(CTY_URLS) : buildFetchUrls(CTY_URLS);
@@ -1034,6 +1066,7 @@ function initCtyFetch(){
     if(res && res.error){
       ctyError = res.error;
       ctyTable = null;
+      ctyPrimaryPrefixMap = new Map();
       ctyPrefixCache = new Map();
       return;
     }
@@ -1043,6 +1076,7 @@ function initCtyFetch(){
       const table = parseCtyDat(text);
       if(table && table.length){
         ctyTable = table;
+        ctyPrimaryPrefixMap = buildCtyPrimaryPrefixMap(table);
         ctyError = null;
         ctyStatus = 'ok';
         ctyPrefixCache = new Map();
@@ -1052,6 +1086,7 @@ function initCtyFetch(){
         }
       }else{
         ctyTable = null;
+        ctyPrimaryPrefixMap = new Map();
         ctyError = 'Parsed 0 prefixes from cty.dat';
         ctyStatus = 'error';
         ctyPrefixCache = new Map();
@@ -2009,6 +2044,11 @@ function buildRows(recs){
       if(!dxccPrefix) dxccPrefix = ctyEntry.prefix || dxccPrefix;
     }
     if(!dxccPrefix) dxccPrefix = callPrefix || "";
+    let dxccPrimaryPrefix = "";
+    const countryKey = (dxccCountry || "").toString().trim().toUpperCase();
+    if(countryKey && ctyPrimaryPrefixMap && ctyPrimaryPrefixMap.has(countryKey)){
+      dxccPrimaryPrefix = ctyPrimaryPrefixMap.get(countryKey) || "";
+    }
     const row = { ...r };
     row.CALL = call;
     row._CALL_VARIANTS = callFilterVariants(call);
@@ -2021,6 +2061,7 @@ function buildRows(recs){
     row._DXCC_NUM = dxccNum;
     row._DXCC_NAME = dxccCountry;
     row._DXCC_PREFIX = dxccPrefix;
+    row._DXCC_PRIMARY_PREFIX = dxccPrimaryPrefix;
     row._CALL_PREFIX = callPrefix;
     row.QSL = qslValue(r);
     row.__recIndex = idx;
@@ -2112,20 +2153,28 @@ function rowPassesFilters(row, f){
   if(f.to && (!d || d > f.to)) return false;
   if(f.bands && f.bands.size){ const b=(row.BAND||"").toUpperCase(); if(!f.bands.has(b)) return false; }
   if(f.modes && f.modes.size){ const m=(row.MODE||"").toUpperCase(); if(!f.modes.has(m)) return false; }
-  if(f.dxcc && f.dxcc.size){
-    const dxccNumStr = (row._DXCC_NUM!=null && Number.isFinite(row._DXCC_NUM)) ? String(row._DXCC_NUM) : "";
-    const dxccName = (row._DXCC_NAME || row.COUNTRY || "").toString().toUpperCase();
-    const dxccPrefix = (row._DXCC_PREFIX || "").toString().toUpperCase();
-    const callPrefix = (row._CALL_PREFIX || "").toString().toUpperCase();
-    const callFull = (row.CALL || "").toString().toUpperCase();
-    const callVariants = Array.isArray(row._CALL_VARIANTS) ? row._CALL_VARIANTS : callFilterVariants(row.CALL);
-    const match = f.dxcc.has(dxccNumStr)
-      || (dxccName && f.dxcc.has(dxccName))
-      || (dxccPrefix && f.dxcc.has(dxccPrefix))
-      || (callPrefix && f.dxcc.has(callPrefix))
-      || (callFull && f.dxcc.has(callFull))
-      || callVariants.some(v => f.dxcc.has(v));
-    if(!match) return false;
+  const hasDxccTokens = f.dxccTokens && f.dxccTokens.size;
+  const hasCallTokens = f.callTokens && f.callTokens.size;
+  if(hasDxccTokens || hasCallTokens){
+    let matchDxcc = false;
+    if(hasDxccTokens){
+      const dxccNumStr = (row._DXCC_NUM!=null && Number.isFinite(row._DXCC_NUM)) ? String(row._DXCC_NUM) : "";
+      const dxccName = (row._DXCC_NAME || row.COUNTRY || "").toString().toUpperCase();
+      const dxccPrefix = (row._DXCC_PREFIX || "").toString().toUpperCase();
+      const dxccPrimaryPrefix = (row._DXCC_PRIMARY_PREFIX || "").toString().toUpperCase();
+      matchDxcc = f.dxccTokens.has(dxccNumStr)
+        || (dxccName && f.dxccTokens.has(dxccName))
+        || (dxccPrefix && f.dxccTokens.has(dxccPrefix))
+        || (dxccPrimaryPrefix && f.dxccTokens.has(dxccPrimaryPrefix));
+    }
+    let matchCall = false;
+    if(hasCallTokens){
+      const callFull = (row.CALL || "").toString().toUpperCase();
+      const callVariants = Array.isArray(row._CALL_VARIANTS) ? row._CALL_VARIANTS : callFilterVariants(row.CALL);
+      const candidates = (callVariants && callVariants.length) ? callVariants : [callFull];
+      matchCall = Array.from(f.callTokens).some(tok => candidates.some(c => c && c.startsWith(tok)));
+    }
+    if(!((hasDxccTokens && matchDxcc) || (hasCallTokens && matchCall))) return false;
   }
   if(f.qslRules && Array.isArray(f.qslRules.rules) && f.qslRules.rules.length){
     let aggregate=null;
@@ -2476,7 +2525,7 @@ function readConfig(){
       to:   parseYMD(document.getElementById('fDateTo').value || ""),
       bands: new Set(parseCSVstrings(document.getElementById('fBands').value)),
       modes: new Set(parseCSVstrings(document.getElementById('fModes').value)),
-      dxcc:  new Set(parseCSVstrings(document.getElementById('fDxcc').value)),
+      ...splitDxccCallTokens(document.getElementById('fDxcc').value),
       qslRules: readQslRulesFromUI(),
       dedupeMode
     }
@@ -2523,6 +2572,7 @@ let ctyStatus='pending';
 let ctyError=null;
 let ctySource=null;
 let ctyPrefixCache=new Map();
+let ctyPrimaryPrefixMap=new Map();
 let recs=[], rows=[], labels=[]; let currentPage=0; let adifFields=[]; let usingSample=true;
 let previewPulseTimer = null;
 function pulsePreview(){
