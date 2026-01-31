@@ -735,7 +735,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
             <option value="modernLab">Modern Lab</option>
           </select>
         </div>
-        <div class="version">Version v5.20</div>
+        <div class="version">Version v5.21</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP, K6TRK</div>
       </div>
@@ -1056,6 +1056,17 @@ function buildCtyPrimaryPrefixMap(table){
   }
   return map;
 }
+function buildCtyCountryPrefixMap(table){
+  const map = new Map();
+  if(!table || !table.length) return map;
+  for(const entry of table){
+    if(!entry || !entry.country || !entry.prefix) continue;
+    const key = entry.country.toUpperCase();
+    if(!map.has(key)) map.set(key, new Set());
+    map.get(key).add(entry.prefix);
+  }
+  return map;
+}
 function initCtyFetch(){
   const useLocalFirst = isLocalHost();
   const ctyUrls = useLocalFirst ? buildLocalFirstUrls(CTY_URLS) : buildFetchUrls(CTY_URLS);
@@ -1067,6 +1078,7 @@ function initCtyFetch(){
       ctyError = res.error;
       ctyTable = null;
       ctyPrimaryPrefixMap = new Map();
+      ctyCountryPrefixMap = new Map();
       ctyPrefixCache = new Map();
       return;
     }
@@ -1077,6 +1089,7 @@ function initCtyFetch(){
       if(table && table.length){
         ctyTable = table;
         ctyPrimaryPrefixMap = buildCtyPrimaryPrefixMap(table);
+        ctyCountryPrefixMap = buildCtyCountryPrefixMap(table);
         ctyError = null;
         ctyStatus = 'ok';
         ctyPrefixCache = new Map();
@@ -1087,6 +1100,7 @@ function initCtyFetch(){
       }else{
         ctyTable = null;
         ctyPrimaryPrefixMap = new Map();
+        ctyCountryPrefixMap = new Map();
         ctyError = 'Parsed 0 prefixes from cty.dat';
         ctyStatus = 'error';
         ctyPrefixCache = new Map();
@@ -2162,10 +2176,12 @@ function rowPassesFilters(row, f){
       const dxccName = (row._DXCC_NAME || row.COUNTRY || "").toString().toUpperCase();
       const dxccPrefix = (row._DXCC_PREFIX || "").toString().toUpperCase();
       const dxccPrimaryPrefix = (row._DXCC_PRIMARY_PREFIX || "").toString().toUpperCase();
+      const countryPrefixes = dxccName && ctyCountryPrefixMap ? ctyCountryPrefixMap.get(dxccName) : null;
       matchDxcc = f.dxccTokens.has(dxccNumStr)
         || (dxccName && f.dxccTokens.has(dxccName))
         || (dxccPrefix && f.dxccTokens.has(dxccPrefix))
-        || (dxccPrimaryPrefix && f.dxccTokens.has(dxccPrimaryPrefix));
+        || (dxccPrimaryPrefix && f.dxccTokens.has(dxccPrimaryPrefix))
+        || (countryPrefixes && Array.from(f.dxccTokens).some(tok => countryPrefixes.has(tok)));
     }
     let matchCall = false;
     if(hasCallTokens){
@@ -2573,6 +2589,7 @@ let ctyError=null;
 let ctySource=null;
 let ctyPrefixCache=new Map();
 let ctyPrimaryPrefixMap=new Map();
+let ctyCountryPrefixMap=new Map();
 let recs=[], rows=[], labels=[]; let currentPage=0; let adifFields=[]; let usingSample=true;
 let previewPulseTimer = null;
 function pulsePreview(){
