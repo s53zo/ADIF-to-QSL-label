@@ -3257,7 +3257,24 @@ function bindInputs(){
   document.getElementById('pickOk').onclick=()=>{ const h=document.getElementById('pickHeader').value||"Header"; const s=document.getElementById('pickSource').value||"DATE"; addColumnRow(h,s); closePicker(); recompute(); };
   document.getElementById('prevPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.max(0,currentPage-1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
   document.getElementById('nextPage').onclick=()=>{ const cfg=readConfig(); const per=cfg.cols*cfg.rows; const pages=Math.max(1,Math.ceil((labels?.length||0)/per)); currentPage=Math.min(pages-1,currentPage+1); document.getElementById('pageInfo').textContent=`Page ${currentPage+1} / ${pages}`; renderOnePage(cfg, currentPage); };
-  document.getElementById('adifFile').addEventListener('change', async (e)=>{
+  
+  window.addEventListener('message', async (event) => {
+    if (event.origin !== 'https://s53zo.github.io') return;
+    const data = event.data || {};
+    if (data.type !== 'sh6_log' || !data.content) return;
+    const name = data.name || 'sh6_log.adi';
+    try {
+      const file = new File([data.content], name, { type: 'text/plain' });
+      await loadAdifFile(file);
+      if (event.source) {
+        event.source.postMessage({ type: 'sh6_log_received', name }, event.origin);
+      }
+    } catch (err) {
+      console.error('Failed to load SH6 log via postMessage', err);
+    }
+  });
+
+document.getElementById('adifFile').addEventListener('change', async (e)=>{
     const f=e.target.files?.[0];
     await loadAdifFile(f);
   });
