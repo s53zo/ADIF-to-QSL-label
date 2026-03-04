@@ -515,6 +515,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
               <div class="row"><label>Padding X (mm)</label><input id="padX" type="number" step="0.5" value="2"></div>
               <div class="row"><label>Padding Y (mm)</label><input id="padY" type="number" step="0.5" value="2"></div>
               <div class="row"><label>"To Radio" text</label><input id="toRadioText" type="text" value="To Radio"></div>
+              <div class="row"><label>Additional text</label><input id="additionalText" type="text" value=""></div>
               <div class="row">
                 <label>Left footer text</label>
                 <div class="inline-field">
@@ -640,6 +641,8 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
                 <label>Date format</label>
                 <select id="dateFormat">
                   <option value="YYYY-MM-DD" selected>YYYY-MM-DD (ISO)</option>
+                  <option value="YYYY-MMM-DD">YYYY-MMM-DD</option>
+                  <option value="DD-MMM-YYYY">DD-MMM-YYYY</option>
                   <option value="DD-MM-YYYY">DD-MM-YYYY</option>
                   <option value="MM-DD-YYYY">MM-DD-YYYY</option>
                   <option value="DD.MM.YYYY">DD.MM.YYYY</option>
@@ -735,7 +738,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
             <option value="modernLab">Modern Lab</option>
           </select>
         </div>
-        <div class="version">Version v5.21</div>
+        <div class="version">Version v5.22</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP, K6TRK</div>
       </div>
@@ -1824,12 +1827,18 @@ function fmtDate(s){
   if (s.length < 8 || !/^\d{8}/.test(s)) return s;
 
   const format = document.getElementById('dateFormat')?.value || 'YYYY-MM-DD';
-  
+  const monthMap = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const year = s.slice(0, 4);
   const month = s.slice(4, 6);
   const day = s.slice(6, 8);
-  
-  return format.replace('YYYY', year).replace('MM', month).replace('DD', day);
+  const monthNum = parseInt(month, 10);
+  const monthName = (Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12) ? monthMap[monthNum - 1] : month;
+
+  return format
+    .replace(/YYYY/g, year)
+    .replace(/MMM/g, monthName)
+    .replace(/MM/g, month)
+    .replace(/DD/g, day);
 }
 function fmtTime(s){ if(!s) return ""; s=s.trim(); return (s.length>=4&&/^\d{4}/.test(s))?`${s.slice(0,2)}:${s.slice(2,4)}`:s; }
 function fmtFreq(value, decimals){
@@ -2106,11 +2115,21 @@ function parseYMD(s) {
 
   const yearIndex = formatParts.indexOf('YYYY');
   const monthIndex = formatParts.indexOf('MM');
+  const monthNameIndex = formatParts.indexOf('MMM');
   const dayIndex = formatParts.indexOf('DD');
-  if (yearIndex === -1 || monthIndex === -1 || dayIndex === -1) return null;
+  if (yearIndex === -1 || dayIndex === -1 || (monthIndex === -1 && monthNameIndex === -1)) return null;
 
   const year = dateParts[yearIndex];
-  const month = dateParts[monthIndex];
+  let month = "";
+  if (monthIndex !== -1) {
+    month = dateParts[monthIndex];
+  } else {
+    const rawMonth = String(dateParts[monthNameIndex] || "").slice(0, 3).toLowerCase();
+    const names = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+    const pos = names.indexOf(rawMonth);
+    if (pos === -1) return null;
+    month = String(pos + 1).padStart(2, '0');
+  }
   const day = dateParts[dayIndex];
   if (year?.length !== 4 || month?.length !== 2 || day?.length !== 2) return null;
 
@@ -2360,6 +2379,31 @@ function getToRadioLabel(cfg){
   const raw = (cfg && typeof cfg.toRadioText === "string") ? cfg.toRadioText : "";
   return raw.length ? raw : "To Radio";
 }
+function getAdditionalLabel(cfg){
+  if(!cfg || typeof cfg.additionalText !== "string") return "";
+  return cfg.additionalText.trim();
+}
+function computeAdditionalTextLayout(cfg, layout){
+  const text = getAdditionalLabel(cfg);
+  const headersBase = layout?.headers?.y_mm ?? 0;
+  const tableBase = layout?.table?.y_mm ?? 0;
+  if(!text){
+    return { text: "", y_mm: null, headersY_mm: headersBase, tableY_mm: tableBase };
+  }
+  const rawSize = Number(cfg?.sizeToRadio);
+  const fontPt = Number.isFinite(rawSize) ? rawSize : 7.5;
+  const spaceAbovePt = 2.0;
+  const spaceBelowPt = 2.0;
+  const shiftMm = pt2mm(fontPt + spaceAbovePt + spaceBelowPt);
+  const toRadioY = layout?.toRadio?.y_mm ?? (cfg?.padYmm ?? 0);
+  const textY = toRadioY + pt2mm(fontPt + spaceAbovePt);
+  return {
+    text,
+    y_mm: textY,
+    headersY_mm: headersBase + shiftMm,
+    tableY_mm: tableBase + shiftMm
+  };
+}
 function measureToRadioWidthMm(cfg){
   if(!cfg) return 0;
   const fontFamily = cfg.fontBody || "Helvetica, Arial, sans-serif";
@@ -2501,6 +2545,7 @@ function readConfig(){
     padXmm:parseFloat(document.getElementById('padX').value||"2"),
     padYmm:parseFloat(document.getElementById('padY').value||"2"),
     toRadioText:document.getElementById('toRadioText').value || "",
+    additionalText:document.getElementById('additionalText').value || "",
     footerL:document.getElementById('footerL').value,
     footerR:document.getElementById('footerR').value,
     footerRShiftmm:parseFloat(document.getElementById('footerRShift').value||"5"),
@@ -2649,6 +2694,7 @@ function renderOnePage(cfg, pageIdx){
   const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
   const callAlign = callIsCentered ? "center" : "left";
   const toRadioText = getToRadioLabel(cfg);
+  const additionalLayout = computeAdditionalTextLayout(cfg, L);
   const toRadioWidthMm = measureToRadioWidthMm(cfg);
   const callCenterLocalX_mm = computeCallCenterLocalXmm(cfg, L, labelW_mm, toRadioWidthMm);
   const perPage=cfg.cols*cfg.rows; const start=pageIdx*perPage; const end=Math.min(labels.length, start+perPage);
@@ -2682,6 +2728,9 @@ function renderOnePage(cfg, pageIdx){
     }
     ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
     ctx.fillText(toRadioText, x0 + mm2pt(L.toRadio.x_mm), y0 + mm2pt(L.toRadio.y_mm));
+    if(additionalLayout.text){
+      ctx.fillText(additionalLayout.text, x0 + mm2pt(L.toRadio.x_mm), y0 + mm2pt(additionalLayout.y_mm));
+    }
     const callXpt = callIsCentered
       ? (x0 + mm2pt(callCenterLocalX_mm))
       : (x0 + mm2pt(L.callsign.x_mm ?? cfg.padXmm));
@@ -2689,9 +2738,9 @@ function renderOnePage(cfg, pageIdx){
     drawCallSegmentsCanvas(ctx, callSegments, callXpt, y0 + mm2pt(L.callsign.y_mm), callAlign);
     ctx.textAlign="left";
     ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
-    let cx=x0; const headersY=y0 + mm2pt(L.headers.y_mm);
+    let cx=x0; const headersY=y0 + mm2pt(additionalLayout.headersY_mm);
     for(let i=0;i<cfg.columns.length;i++){ ctx.fillText(cfg.columns[i].header, cx+padXpt, headersY); cx+=colW[i]; }
-    const firstLineY=y0 + mm2pt(L.table.y_mm);
+    const firstLineY=y0 + mm2pt(additionalLayout.tableY_mm);
     const lineGap=(L.table.lineGapPt ?? cfg.lineGapPt);
     ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
     for(let r=0;r<cfg.rowsPerLabel;r++){
@@ -2824,6 +2873,7 @@ async function downloadPDF() {
     const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
     const callAlign = callIsCentered ? "center" : "left";
     const toRadioText = getToRadioLabel(cfg);
+    const additionalLayout = computeAdditionalTextLayout(cfg, L);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(cfg.sizeToRadio);
     const toRadioWidthMmPdf = doc.getTextWidth(toRadioText);
@@ -2907,6 +2957,10 @@ async function downloadPDF() {
             }
             const toRadioPos = toPage(L.toRadio.x_mm, L.toRadio.y_mm);
             pdfText(toRadioText, toRadioPos.x, toRadioPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
+            if (additionalLayout.text) {
+                const additionalPos = toPage(L.toRadio.x_mm, additionalLayout.y_mm);
+                pdfText(additionalLayout.text, additionalPos.x, additionalPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
+            }
             const callLocalX = callIsCentered ? callCenterLocalX_mm : (L.callsign.x_mm ?? padX_mm);
             const callPos = toPage(callLocalX, L.callsign.y_mm);
             const callSegments = buildCallSegments(call, chunk, cfg);
@@ -2914,7 +2968,7 @@ async function downloadPDF() {
             let colAccumPt = 0;
             for (let i = 0; i < cfg.columns.length; i++) {
                 const headerLocalX = pt2mm(colAccumPt) + padX_mm;
-                const headerPos = toPage(headerLocalX, L.headers.y_mm);
+                const headerPos = toPage(headerLocalX, additionalLayout.headersY_mm);
                 pdfText(cfg.columns[i].header, headerPos.x, headerPos.y, "left", "helvetica", "bold", cfg.sizeHeaders, rotation);
                 colAccumPt += colWpt[i];
             }
@@ -2925,7 +2979,7 @@ async function downloadPDF() {
                 for (let i = 0; i < cfg.columns.length; i++) {
                     const txt = data ? getCellText(data, cfg.columns[i].source, cfg) : "";
                     const localX = pt2mm(colAccumPt2) + padX_mm;
-                    const localY = L.table.y_mm + pt2mm(lineGapPt * r);
+                    const localY = additionalLayout.tableY_mm + pt2mm(lineGapPt * r);
                     const pos = toPage(localX, localY);
                     const maxW_mm = Math.max(0.1, pt2mm(colWpt[i]) - 2 * padX_mm);
                     shrinkAndText(txt, pos.x, pos.y, maxW_mm, "courier", "normal", cfg.sizeRows, 5.0, 0.3, rotation);
@@ -3150,11 +3204,15 @@ function renderEditor(){
   const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
   const callAlign = callIsCentered ? "center" : "left";
   const toRadioText = getToRadioLabel(cfg);
+  const additionalLayout = computeAdditionalTextLayout(cfg, L);
   const toRadioWidthMm = measureToRadioWidthMm(cfg);
   const callCenterLocalX_mm = computeCallCenterLocalXmm(cfg, L, labelW_mm, toRadioWidthMm);
   ctx.fillStyle="#000";
   ctx.font=`${cfg.sizeToRadio}px ${cfg.fontBody}`; ctx.textAlign="left";
   ctx.fillText(toRadioText, mm2pt(L.toRadio.x_mm), mm2pt(L.toRadio.y_mm));
+  if(additionalLayout.text){
+    ctx.fillText(additionalLayout.text, mm2pt(L.toRadio.x_mm), mm2pt(additionalLayout.y_mm));
+  }
   const callXpt = callIsCentered
     ? mm2pt(callCenterLocalX_mm)
     : (mm2pt(L.callsign.x_mm ?? cfg.padXmm));
@@ -3162,9 +3220,9 @@ function renderEditor(){
   drawCallSegmentsCanvas(ctx, buildCallSegments("SAMPLECALL", sampleChunk, cfg), callXpt, mm2pt(L.callsign.y_mm), callAlign);
   ctx.textAlign="left";
   ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
-  ctx.fillText("Date   Time   Band   Mode   QSL", mm2pt(cfg.padXmm), mm2pt(L.headers.y_mm));
+  ctx.fillText("Date   Time   Band   Mode   QSL", mm2pt(cfg.padXmm), mm2pt(additionalLayout.headersY_mm));
   ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
-  ctx.fillText("2025-09-09  12:34  20M   CW   TNX", mm2pt(cfg.padXmm), mm2pt(L.table.y_mm));
+  ctx.fillText("2025-09-09  12:34  20M   CW   TNX", mm2pt(cfg.padXmm), mm2pt(additionalLayout.tableY_mm));
   ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
   const sampleFooterRow = (rows && rows.length) ? rows[0] : {
     CALL:"SAMPLECALL",
@@ -3285,7 +3343,7 @@ function applyConfigToUI(cfg){
     cfg.pageSize = normalizePageSize(cfg.pageSize);
   }
   const map={ pageSize:'pageSize', cols:'cols', rows:'rows', labelHmm:'labelH', marginLmm:'marginL', marginRmm:'marginR', colGapmm:'colGap', rowGapmm:'rowGap', marginTmm:'marginT',
-    xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', toRadioText:'toRadioText', footerL:'footerL', footerR:'footerR',
+    xOffmm:'xOffset', yOffmm:'yOffset', padXmm:'padX', padYmm:'padY', toRadioText:'toRadioText', additionalText:'additionalText', footerL:'footerL', footerR:'footerR',
     footerRShiftmm:'footerRShift', footerYShiftmm:'footerYShift', rowsPerLabel:'rowsPerLabel', colSlackPt:'slackPt',
     lineGapPt:'lineGap', sizeToRadio:'sizeToRadio', sizeCallsign:'sizeCallsign', sizeViaLabel:'sizeViaLabel', sizeViaManager:'sizeViaManager',
     sizeHeaders:'sizeHeaders', sizeRows:'sizeRows', sizeFooter:'sizeFooter',
