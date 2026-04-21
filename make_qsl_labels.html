@@ -638,6 +638,14 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
                 </select>
               </div>
               <div class="row">
+                <label>QSO rows bold</label>
+                <select id="qsoRowsBold">
+                  <option value="0">No</option>
+                  <option value="1">Yes (bold)</option>
+                  <option value="2">Yes (extra bold)</option>
+                </select>
+              </div>
+              <div class="row">
                 <label>Date format</label>
                 <select id="dateFormat">
                   <option value="YYYY-MM-DD" selected>YYYY-MM-DD (ISO)</option>
@@ -738,7 +746,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
             <option value="modernLab">Modern Lab</option>
           </select>
         </div>
-        <div class="version">Version v5.22</div>
+        <div class="version">Version v5.23</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP, K6TRK</div>
       </div>
@@ -1738,6 +1746,7 @@ function initReveal(){
 }
 function downloadBlob(name, blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
 function setupHiDPICanvas(canvas, pageWpt, pageHpt, zoom){ const dpr=window.devicePixelRatio||1; const cssW=Math.round(pageWpt*zoom); const cssH=Math.round(pageHpt*zoom); canvas.style.width=cssW+"px"; canvas.style.height=cssH+"px"; canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr); const ctx=canvas.getContext('2d'); ctx.setTransform(canvas.width/pageWpt,0,0,canvas.height/pageHpt,0,0); return ctx; }
+function setupPrintCanvas(canvas, pageWpt, pageHpt, scale=4){ const safeScale=Math.max(1, Number(scale)||4); canvas.width=Math.round(pageWpt*safeScale); canvas.height=Math.round(pageHpt*safeScale); canvas.style.width=Math.round(pageWpt)+"px"; canvas.style.height=Math.round(pageHpt)+"px"; const ctx=canvas.getContext('2d'); ctx.setTransform(safeScale,0,0,safeScale,0,0); return ctx; }
 
 /* ===== ADIF parsing & helpers ===== */
 const FIELD_TAG=/<([A-Za-z0-9_]+):(\d+)(?::[^>]+)?>/ig;
@@ -1962,24 +1971,19 @@ function buildCallSegments(call, rows, cfg){
   const callIsNormal = Boolean(via);
   const managerIsBold = Boolean(via);
   const callWeight = callIsNormal ? "" : "bold ";
-  const callPdfStyle = callIsNormal ? "normal" : "bold";
   const segments=[{
     text: base,
-    canvasFont: `${callWeight}${callSize}px ${bodyFont}`,
-    pdfFont: { family:"helvetica", style:callPdfStyle, size:callSize }
+    canvasFont: `${callWeight}${callSize}px ${bodyFont}`
   }];
   if(via){
     const managerWeight = managerIsBold ? "bold " : "";
-    const managerPdfStyle = managerIsBold ? "bold" : "normal";
     segments.push({
       text:" via ",
-      canvasFont: `${viaLabelSize}px ${bodyFont}`,
-      pdfFont:{ family:"helvetica", style:"normal", size:viaLabelSize }
+      canvasFont: `${viaLabelSize}px ${bodyFont}`
     });
     segments.push({
       text:via,
-      canvasFont: `${managerWeight}${viaManagerSize}px ${bodyFont}`,
-      pdfFont:{ family:"helvetica", style:managerPdfStyle, size:viaManagerSize }
+      canvasFont: `${managerWeight}${viaManagerSize}px ${bodyFont}`
     });
   }
   return segments;
@@ -2004,38 +2008,6 @@ function drawCallSegmentsCanvas(ctx, segments, x, y, align){
   segments.forEach((seg, idx)=>{
     ctx.font = seg.canvasFont;
     ctx.fillText(seg.text || "", cursor, y);
-    cursor += widths[idx];
-  });
-}
-function measurePdfSegments(doc, segments){
-  const widths=[]; let total=0;
-  segments.forEach(seg=>{
-    const font=seg.pdfFont||{};
-    doc.setFont(font.family||"helvetica", font.style||"normal");
-    doc.setFontSize(font.size ?? 10);
-    const text=String(seg.text ?? "");
-    const w=doc.getTextWidth(text);
-    widths.push(w);
-    total+=w;
-  });
-  return { total, widths };
-}
-function drawCallSegmentsPdf(doc, segments, x_mm, y_mm, align, rotation){
-  if(!segments || !segments.length) return;
-  const { total, widths } = measurePdfSegments(doc, segments);
-  let cursor=x_mm;
-  if(align==="center"){ cursor -= total/2; }
-  else if(align==="right"){ cursor -= total; }
-  segments.forEach((seg, idx)=>{
-    const font=seg.pdfFont||{};
-    doc.setFont(font.family||"helvetica", font.style||"normal");
-    doc.setFontSize(font.size ?? 10);
-    const text=String(seg.text ?? "");
-    if(rotation){
-      doc.text(text, cursor, y_mm, { angle: rotation });
-    }else{
-      doc.text(text, cursor, y_mm);
-    }
     cursor += widths[idx];
   });
 }
@@ -2379,6 +2351,16 @@ function getToRadioLabel(cfg){
   const raw = (cfg && typeof cfg.toRadioText === "string") ? cfg.toRadioText : "";
   return raw.length ? raw : "To Radio";
 }
+function getQsoRowsBoldMode(cfg){
+  const mode = Number(cfg?.qsoRowsBold);
+  return Number.isFinite(mode) ? clamp(Math.round(mode), 0, 2) : 0;
+}
+function qsoRowsFontWeight(cfg){
+  return getQsoRowsBoldMode(cfg) > 0 ? "bold " : "";
+}
+function qsoRowsUseFauxBold(cfg){
+  return getQsoRowsBoldMode(cfg) === 2;
+}
 function getAdditionalLabel(cfg){
   if(!cfg || typeof cfg.additionalText !== "string") return "";
   return cfg.additionalText.trim();
@@ -2446,6 +2428,7 @@ function computeColWidths(ctx, cfg, qsoRows, labelWpt){
   const cols=cfg.columns; const n=cols.length;
   const padXpt = mm2pt(cfg.padXmm ?? 0);
   const padTotal = padXpt * 2;
+  const rowWeight = qsoRowsFontWeight(cfg);
   const widths=cols.map(col=>{
     const headerW = measureText(ctx, col.header, `${cfg.sizeHeaders}px ${cfg.fontBold}`);
     return headerW + padTotal;
@@ -2453,7 +2436,7 @@ function computeColWidths(ctx, cfg, qsoRows, labelWpt){
   for(const row of qsoRows||[]){
     for(let i=0;i<n;i++){
       const txt=getCellText(row, cols[i].source, cfg);
-      const cellW = measureText(ctx, txt, `${cfg.sizeRows}px ${cfg.fontMono}`) + padTotal;
+      const cellW = measureText(ctx, txt, `${rowWeight}${cfg.sizeRows}px ${cfg.fontMono}`) + padTotal;
       widths[i]=Math.max(widths[i], cellW);
     }
   }
@@ -2562,6 +2545,7 @@ function readConfig(){
     fontBody:document.getElementById('fontBody').value,
     fontMono:document.getElementById('fontMono').value,
     fontBold:document.getElementById('fontBold').value,
+    qsoRowsBold: (()=>{ const raw = Number.parseInt(document.getElementById('qsoRowsBold')?.value || "0", 10); return Number.isFinite(raw) ? clamp(Math.round(raw), 0, 2) : 0; })(),
     dateFormat: document.getElementById('dateFormat').value,
     freqDecimals: freqDecimalsVal,
     sizeToRadio:parseFloat(document.getElementById('sizeToRadio').value||"7.5"),
@@ -2674,8 +2658,14 @@ function computeLabelX0Y0(cfg, col, rowI, labelWpt, labelHpt){
   y0 += mm2pt(cfg.yOffmm) + mm2pt(cfg.rowOffsets[rowI]||0);
   return {x0,y0};
 }
-function renderOnePage(cfg, pageIdx){
-  const ctx = setupHiDPICanvas(canvas, mm2pt(cfg.pageWmm), mm2pt(cfg.pageHmm), (parseInt(document.getElementById('zoom').value||"100",10)/100));
+function renderOnePage(cfg, pageIdx, targetCanvas=canvas, renderLabels=labels, renderScale=null){
+  const pageWpt = mm2pt(cfg.pageWmm);
+  const pageHpt = mm2pt(cfg.pageHmm);
+  const isPreviewCanvas = targetCanvas === canvas;
+  const scale = renderScale ?? (parseInt(document.getElementById('zoom').value||"100",10)/100);
+  const ctx = isPreviewCanvas
+    ? setupHiDPICanvas(targetCanvas, pageWpt, pageHpt, scale)
+    : setupPrintCanvas(targetCanvas, pageWpt, pageHpt, scale);
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,mm2pt(cfg.pageWmm),mm2pt(cfg.pageHmm));
   ctx.fillStyle="#000"; ctx.textBaseline="alphabetic";
   if(cfg.dbgOutline && cfg.mode==='qslCard'){
@@ -2697,11 +2687,11 @@ function renderOnePage(cfg, pageIdx){
   const additionalLayout = computeAdditionalTextLayout(cfg, L);
   const toRadioWidthMm = measureToRadioWidthMm(cfg);
   const callCenterLocalX_mm = computeCallCenterLocalXmm(cfg, L, labelW_mm, toRadioWidthMm);
-  const perPage=cfg.cols*cfg.rows; const start=pageIdx*perPage; const end=Math.min(labels.length, start+perPage);
+  const perPage=cfg.cols*cfg.rows; const start=pageIdx*perPage; const end=Math.min(renderLabels.length, start+perPage);
   const padXpt=mm2pt(cfg.padXmm), padYpt=mm2pt(cfg.padYmm);
   for(let idx=start; idx<end; idx++){
     const local=idx-start; const col=local % cfg.cols; const rowI=Math.floor(local / cfg.cols);
-    const item=labels[idx];
+    const item=renderLabels[idx];
     const isBlank = !item || !item[0] && (!item[1] || item[1].length===0);
     const call = isBlank ? "" : item[0];
     const chunk = isBlank ? [] : item[1];
@@ -2719,7 +2709,7 @@ function renderOnePage(cfg, pageIdx){
         columns: cfg.columns, sizeHeaders: cfg.sizeHeaders, sizeRows: cfg.sizeRows,
         fontBold: cfg.fontBold, fontMono: cfg.fontMono, minColMM: cfg.minColMM,
         staticColMM: cfg.staticColMM, colSlackPt: cfg.colSlackPt, shrinkOnly: cfg.shrinkOnly,
-        padXmm: cfg.padXmm, freqDecimals: cfg.freqDecimals,
+        padXmm: cfg.padXmm, freqDecimals: cfg.freqDecimals, qsoRowsBold: cfg.qsoRowsBold,
       }, chunk, labelWpt);
     }else{
       const sum=cfg.staticColMM.reduce((a,b)=>a+b,0)||1;
@@ -2742,13 +2732,15 @@ function renderOnePage(cfg, pageIdx){
     for(let i=0;i<cfg.columns.length;i++){ ctx.fillText(cfg.columns[i].header, cx+padXpt, headersY); cx+=colW[i]; }
     const firstLineY=y0 + mm2pt(additionalLayout.tableY_mm);
     const lineGap=(L.table.lineGapPt ?? cfg.lineGapPt);
-    ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
+    const qsoRowFont = `${qsoRowsFontWeight(cfg)}${cfg.sizeRows}px ${cfg.fontMono}`;
+    const qsoRowsFauxBold = qsoRowsUseFauxBold(cfg);
+    ctx.font=qsoRowFont;
     for(let r=0;r<cfg.rowsPerLabel;r++){
       const data=chunk[r]||null; let cx2=x0;
       for(let i=0;i<cfg.columns.length;i++){
         const maxW=Math.max(1, colW[i]-2*padXpt);
         const txt=data ? getCellText(data, cfg.columns[i].source, cfg) : "";
-        shrinkAndDraw(ctx, txt, cx2+padXpt, firstLineY + r*lineGap, maxW, `${cfg.sizeRows}px ${cfg.fontMono}`);
+        shrinkAndDraw(ctx, txt, cx2+padXpt, firstLineY + r*lineGap, maxW, qsoRowFont, 5, 0.3, qsoRowsFauxBold);
         cx2+=colW[i];
       }
     }
@@ -2764,10 +2756,36 @@ function renderOnePage(cfg, pageIdx){
     ctx.restore();
   }
 }
-function shrinkAndDraw(ctx, text, x, y, maxW, font, minSize=5, step=0.3){
-  let size=parseFloat(font.match(/(\d+(\.\d+)?)/)[0]); const family=font.replace(/^\s*\d+(\.\d+)?px\s*/,''); let w;
-  while(true){ ctx.font=`${size}px ${family}`; w=ctx.measureText(text||"").width; if(w<=maxW || size<=minSize) break; size=Math.max(minSize,size-step); }
+function parseCanvasFont(font){
+  const raw = String(font || "");
+  const match = raw.match(/^\s*(?:(normal|bold|[1-9]00)\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/i);
+  if(match){
+    return {
+      weight: match[1] ? `${match[1]} ` : "",
+      size: parseFloat(match[2]),
+      family: match[3]
+    };
+  }
+  const sizeMatch = raw.match(/(\d+(?:\.\d+)?)/);
+  const size = sizeMatch ? parseFloat(sizeMatch[1]) : 8;
+  return {
+    weight: /^\s*(?:bold|[1-9]00)\b/i.test(raw) ? "bold " : "",
+    size,
+    family: raw.replace(/^\s*(?:(?:normal|bold|[1-9]00)\s+)?\d+(?:\.\d+)?px\s*/i,'') || "monospace"
+  };
+}
+function shrinkAndDraw(ctx, text, x, y, maxW, font, minSize=5, step=0.3, fauxBold=false){
+  const parsed = parseCanvasFont(font);
+  const fitMaxW = fauxBold ? Math.max(1, maxW - 0.25) : maxW;
+  let size=parsed.size; let w;
+  while(true){
+    ctx.font=`${parsed.weight}${size}px ${parsed.family}`;
+    w=ctx.measureText(text||"").width;
+    if(w<=fitMaxW || size<=minSize) break;
+    size=Math.max(minSize,size-step);
+  }
   ctx.fillText(text||"", x, y);
+  if(fauxBold){ ctx.fillText(text||"", x + 0.25, y + 0.25); }
 }
 
 /* ===== Filters + Start-at offset ===== */
@@ -2809,9 +2827,7 @@ async function downloadPDF() {
         alert("No QSOs match the current filters.");
         return;
     }
-    const {
-        jsPDF
-    } = window.jspdf;
+    const { jsPDF } = window.jspdf;
     const orientation = (cfg.pageWmm >= cfg.pageHmm) ? 'landscape' : 'portrait';
     const doc = new jsPDF({
         orientation,
@@ -2819,181 +2835,17 @@ async function downloadPDF() {
         format: [cfg.pageWmm, cfg.pageHmm],
         compress: true
     });
-    const labelW_mm = (cfg.mode === 'qslCard') ? cfg.cardLabelWidthmm : computeGridLabelWidthMM(cfg);
-    const labelH_mm = (cfg.mode === 'qslCard') ? cfg.cardLabelHeightmm : cfg.labelHmm;
-    const labelWpt = mm2pt(labelW_mm);
-    const labelHpt = mm2pt(labelH_mm);
+    if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+    }
     const per = cfg.cols * cfg.rows;
     const pages = Math.max(1, Math.ceil(pdfLabels.length / per));
-
-    function pdfText(text, x_mm, y_mm, align = "left", font = "helvetica", style = "normal", size = 10, rotation = 0) {
-        doc.setFont(font, style);
-        doc.setFontSize(size);
-        const opts = {
-            align
-        };
-        if (rotation) {
-            opts.angle = rotation;
-        }
-        doc.text(String(text ?? ""), x_mm, y_mm, opts);
-    }
-
-    function shrinkAndText(text, x_mm, y_mm, maxW_mm, font = "courier", style = "normal", startSize = 8.2, minSize = 5.0, step = 0.3, rotation = 0) {
-        let sz = startSize;
-        doc.setFont(font, style);
-        doc.setFontSize(sz);
-        while (doc.getTextWidth(String(text ?? "")) > maxW_mm && sz > minSize) {
-            sz = Math.max(minSize, sz - step);
-            doc.setFontSize(sz);
-        }
-        if (rotation) {
-            doc.text(String(text ?? ""), x_mm, y_mm, {
-                angle: rotation
-            });
-        } else {
-            doc.text(String(text ?? ""), x_mm, y_mm);
-        }
-    }
-
-    function drawRotatedRect(docInst, toPage, width_mm, height_mm) {
-        const corners = [
-            toPage(0, 0),
-            toPage(width_mm, 0),
-            toPage(width_mm, height_mm),
-            toPage(0, height_mm)
-        ];
-        for (let i = 0; i < 4; i++) {
-            const a = corners[i];
-            const b = corners[(i + 1) % 4];
-            docInst.line(a.x, a.y, b.x, b.y);
-        }
-    }
-    const L = cfg.layout;
-    const unlockCall = document.getElementById('unlockCallX');
-    const callIsCentered = Boolean(L.callsign?.centerX) && !(unlockCall && unlockCall.checked);
-    const callAlign = callIsCentered ? "center" : "left";
-    const toRadioText = getToRadioLabel(cfg);
-    const additionalLayout = computeAdditionalTextLayout(cfg, L);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(cfg.sizeToRadio);
-    const toRadioWidthMmPdf = doc.getTextWidth(toRadioText);
-    const callCenterLocalX_mm = computeCallCenterLocalXmm(cfg, L, labelW_mm, toRadioWidthMmPdf);
+    const printScale = 4;
+    const pageCanvas = document.createElement('canvas');
     for (let p = 0; p < pages; p++) {
         if (p > 0) doc.addPage([cfg.pageWmm, cfg.pageHmm], orientation);
-        if (cfg.dbgOutline && cfg.mode === 'qslCard') {
-            doc.setDrawColor(148);
-            doc.setLineWidth(0.1);
-            doc.rect(0, 0, cfg.pageWmm, cfg.pageHmm);
-            doc.setDrawColor(0);
-        }
-        const start = p * per,
-            end = Math.min(pdfLabels.length, start + per);
-        for (let idx = start; idx < end; idx++) {
-            const local = idx - start;
-            const col = local % cfg.cols;
-            const rowI = Math.floor(local / cfg.cols); // <-- THIS LINE IS THE FIX
-            const item = pdfLabels[idx];
-            const isBlank = !item || !item[0] && (!item[1] || item[1].length === 0);
-            const {
-                x0,
-                y0
-            } = computeLabelX0Y0(cfg, col, rowI, labelWpt, labelHpt);
-            const x0_mm = pt2mm(x0);
-            const y0_mm = pt2mm(y0);
-            const rotation = (cfg.mode === 'qslCard') ? (cfg.cardLabelRotationDeg || 0) : 0;
-            const rad = rotation * Math.PI / 180;
-            const sinR = Math.sin(rad);
-            const cosR = Math.cos(rad);
-            const cx = x0_mm + labelW_mm / 2;
-            const cy = y0_mm + labelH_mm / 2;
-            const toPage = (lx_mm, ly_mm) => {
-                const absX = x0_mm + lx_mm;
-                const absY = y0_mm + ly_mm;
-                if (!rotation) {
-                    return {
-                        x: absX,
-                        y: absY
-                    };
-                }
-                const dx = absX - cx;
-                const dy = absY - cy;
-                return {
-                    x: cx + dx * cosR - dy * sinR,
-                    y: cy + dx * sinR + dy * cosR
-                };
-            };
-            const padX_mm = cfg.padXmm;
-            if (cfg.dbgOutline) {
-                doc.setDrawColor(187);
-                doc.setLineWidth(0.1);
-                if (rotation) {
-                    drawRotatedRect(doc, toPage, labelW_mm, labelH_mm);
-                } else {
-                    doc.rect(x0_mm, y0_mm, labelW_mm, labelH_mm);
-                }
-                doc.setDrawColor(0);
-            }
-            if (isBlank) continue;
-            const [call, chunk] = item;
-            let colWpt;
-            if (cfg.dynamicCols) {
-                colWpt = computeColWidths(metricsCanvas.getContext('2d'), {
-                    columns: cfg.columns,
-                    sizeHeaders: cfg.sizeHeaders,
-                    sizeRows: cfg.sizeRows,
-                    fontBold: cfg.fontBold,
-                    fontMono: cfg.fontMono,
-                    minColMM: cfg.minColMM,
-                    staticColMM: cfg.staticColMM,
-                    colSlackPt: cfg.colSlackPt,
-                    shrinkOnly: cfg.shrinkOnly,
-                    padXmm: cfg.padXmm,
-                    freqDecimals: cfg.freqDecimals,
-                }, chunk, labelWpt);
-            } else {
-                const sum = cfg.staticColMM.reduce((a, b) => a + b, 0) || 1;
-                const scale = labelWpt / mm2pt(sum);
-                colWpt = cfg.staticColMM.map(mm => mm2pt(mm) * scale);
-            }
-            const toRadioPos = toPage(L.toRadio.x_mm, L.toRadio.y_mm);
-            pdfText(toRadioText, toRadioPos.x, toRadioPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
-            if (additionalLayout.text) {
-                const additionalPos = toPage(L.toRadio.x_mm, additionalLayout.y_mm);
-                pdfText(additionalLayout.text, additionalPos.x, additionalPos.y, "left", "helvetica", "normal", cfg.sizeToRadio, rotation);
-            }
-            const callLocalX = callIsCentered ? callCenterLocalX_mm : (L.callsign.x_mm ?? padX_mm);
-            const callPos = toPage(callLocalX, L.callsign.y_mm);
-            const callSegments = buildCallSegments(call, chunk, cfg);
-            drawCallSegmentsPdf(doc, callSegments, callPos.x, callPos.y, callAlign, rotation);
-            let colAccumPt = 0;
-            for (let i = 0; i < cfg.columns.length; i++) {
-                const headerLocalX = pt2mm(colAccumPt) + padX_mm;
-                const headerPos = toPage(headerLocalX, additionalLayout.headersY_mm);
-                pdfText(cfg.columns[i].header, headerPos.x, headerPos.y, "left", "helvetica", "bold", cfg.sizeHeaders, rotation);
-                colAccumPt += colWpt[i];
-            }
-            const lineGapPt = (L.table.lineGapPt ?? cfg.lineGapPt);
-            for (let r = 0; r < cfg.rowsPerLabel; r++) {
-                const data = chunk[r] || null;
-                let colAccumPt2 = 0;
-                for (let i = 0; i < cfg.columns.length; i++) {
-                    const txt = data ? getCellText(data, cfg.columns[i].source, cfg) : "";
-                    const localX = pt2mm(colAccumPt2) + padX_mm;
-                    const localY = additionalLayout.tableY_mm + pt2mm(lineGapPt * r);
-                    const pos = toPage(localX, localY);
-                    const maxW_mm = Math.max(0.1, pt2mm(colWpt[i]) - 2 * padX_mm);
-                    shrinkAndText(txt, pos.x, pos.y, maxW_mm, "courier", "normal", cfg.sizeRows, 5.0, 0.3, rotation);
-                    colAccumPt2 += colWpt[i];
-                }
-            }
-            const footerRow = chunk && chunk.length ? chunk[0] : null;
-            const footerLText = formatTemplateText(cfg.footerL, footerRow, cfg);
-            const footerRText = formatTemplateText(cfg.footerR, footerRow, cfg);
-            const footerLPos = toPage(L.footerL.x_mm, L.footerL.y_mm);
-            pdfText(footerLText, footerLPos.x, footerLPos.y, "left", "helvetica", "normal", cfg.sizeFooter, rotation);
-            const footerRPos = toPage(L.footerR.x_mm, L.footerR.y_mm);
-            pdfText(footerRText, footerRPos.x, footerRPos.y, "right", "helvetica", "normal", cfg.sizeFooter, rotation);
-        }
+        renderOnePage(cfg, p, pageCanvas, pdfLabels, printScale);
+        doc.addImage(pageCanvas.toDataURL('image/png'), 'PNG', 0, 0, cfg.pageWmm, cfg.pageHmm);
     }
     const baseName = cfg.mode === 'qslCard' ? 'qsl_card' : 'qsl_labels';
     const suffixMap = {
@@ -3003,10 +2855,9 @@ async function downloadPDF() {
         FIFO: '_fifo'
     };
     const suffix = suffixMap[cfg.sortMode] || '';
-    const fileName = `${baseName}${suffix||''}.pdf`;
+    const fileName = baseName + (suffix || '') + '.pdf';
     doc.save(fileName);
 }
-
 function downloadUpdatedAdif(){
     const cfg = readConfig();
     const exportScope = (cfg.exportScope || 'FILTERED').toUpperCase();
@@ -3044,7 +2895,7 @@ function downloadUpdatedAdif(){
     }
     const headerLine = (originalAdifHeader && originalAdifHeader.trim().length)
         ? originalAdifHeader.trimEnd()
-        : "Generated by QSL Labels v5.14";
+        : "Generated by QSL Labels v5.23";
     let output = "";
     if (headerLine) {
         output += headerLine + "\n";
@@ -3221,8 +3072,12 @@ function renderEditor(){
   ctx.textAlign="left";
   ctx.font=`bold ${cfg.sizeHeaders}px ${cfg.fontBold}`;
   ctx.fillText("Date   Time   Band   Mode   QSL", mm2pt(cfg.padXmm), mm2pt(additionalLayout.headersY_mm));
-  ctx.font=`${cfg.sizeRows}px ${cfg.fontMono}`;
-  ctx.fillText("2025-09-09  12:34  20M   CW   TNX", mm2pt(cfg.padXmm), mm2pt(additionalLayout.tableY_mm));
+  ctx.font=`${qsoRowsFontWeight(cfg)}${cfg.sizeRows}px ${cfg.fontMono}`;
+  const sampleRowText = "2025-09-09  12:34  20M   CW   TNX";
+  const sampleRowX = mm2pt(cfg.padXmm);
+  const sampleRowY = mm2pt(additionalLayout.tableY_mm);
+  ctx.fillText(sampleRowText, sampleRowX, sampleRowY);
+  if(qsoRowsUseFauxBold(cfg)){ ctx.fillText(sampleRowText, sampleRowX + 0.25, sampleRowY + 0.25); }
   ctx.font=`${cfg.sizeFooter}px ${cfg.fontBody}`;
   const sampleFooterRow = (rows && rows.length) ? rows[0] : {
     CALL:"SAMPLECALL",
@@ -3369,6 +3224,11 @@ function applyConfigToUI(cfg){
   if(cfg.fontBody) document.getElementById('fontBody').value=cfg.fontBody;
   if(cfg.fontMono) document.getElementById('fontMono').value=cfg.fontMono;
   if(cfg.fontBold) document.getElementById('fontBold').value=cfg.fontBold;
+  const qsoRowsBoldEl=document.getElementById('qsoRowsBold');
+  if(qsoRowsBoldEl){
+    const parsed = Number(cfg.qsoRowsBold ?? 0);
+    qsoRowsBoldEl.value = `${Number.isFinite(parsed) ? clamp(Math.round(parsed), 0, 2) : 0}`;
+  }
   if(cfg.dateFormat) document.getElementById('dateFormat').value=cfg.dateFormat;
   if(cfg.freqDecimals!==undefined){
     const val = Number(cfg.freqDecimals);
@@ -3447,6 +3307,13 @@ function normalizeLoadedConfig(obj){
       if (!arr) return { ok:false, error:`${key} must be an array of numbers.` };
       out[key] = arr;
     }
+  }
+  if (obj.qsoRowsBold !== undefined) {
+    const mode = Number(obj.qsoRowsBold);
+    if (!Number.isInteger(mode) || mode < 0 || mode > 2) return { ok:false, error:"qsoRowsBold must be 0, 1, or 2" };
+    out.qsoRowsBold = mode;
+  }else{
+    out.qsoRowsBold = 0;
   }
   if (colCount !== null) {
     if (out.minColMM && out.minColMM.length !== colCount) return { ok:false, error:"minColMM length must match columns." };
