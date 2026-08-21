@@ -1,5 +1,5 @@
-.DS_Store
+make_qsl_labels.html
+vendor/
 node_modules/
 test-results/
 playwright-report/
-tests/artifacts/

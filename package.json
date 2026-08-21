@@ -1,0 +1,35 @@
+{
+  "name": "adif-to-qsl-label",
+  "version": "5.25.0",
+  "private": true,
+  "description": "Offline-first ADIF to printable QSL label and card helper",
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint app-core.js scripts tests playwright.config.js && node scripts/check-inline-js.mjs",
+    "format": "prettier --write app-core.js scripts tests playwright.config.js eslint.config.js package.json README.md CHANGELOG.md docs .github vendor/README.md",
+    "format:check": "prettier --check app-core.js scripts tests playwright.config.js eslint.config.js package.json README.md CHANGELOG.md docs .github vendor/README.md",
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "playwright test",
+    "test:pdf": "playwright test tests/e2e/pdf.spec.js",
+    "test:a11y": "playwright test tests/e2e/accessibility.spec.js",
+    "benchmark:pdf": "node scripts/benchmark-pdf.mjs",
+    "test": "npm run test:unit",
+    "ci": "npm run lint && npm run format:check && npm run test:unit && npm run test:e2e"
+  },
+  "dependencies": {
+    "jspdf": "4.2.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.62.1",
+    "eslint": "10.8.1",
+    "espree": "11.2.0",
+    "fast-check": "4.9.0",
+    "pdf-lib": "1.17.1",
+    "pixelmatch": "7.2.0",
+    "pngjs": "7.0.0",
+    "prettier": "3.9.6",
+    "vitest": "4.1.11"
+  }
+}

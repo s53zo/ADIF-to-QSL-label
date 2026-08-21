@@ -1,164 +1,121 @@
-# QSL Label Generator — Avery Zweckform 3664 (or any other)
+# ADIF to QSL Labels
 
-Github URL: [https://github.com/s53zo/ADIF-to-QSL-label](https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html)
+Browser-based, print-ready QSL labels and direct QSL cards generated locally
+from an ADIF log.
 
-There is a html and python version of the tool. But use html, python is outdated.
+Open the [hosted helper](https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html)
+or serve/clone this repository and open `make_qsl_labels.html`. The browser tool
+is the maintained version; `make_qsl_labels.py` is retained as an outdated legacy
+implementation.
 
-Generate **print-ready QSL labels** from your ADIF log.
+## Features
 
-- 📄 Outputs a **PDF** aligned for **Avery Zweckform 3664** (A4, 3×8, 70×33.8 mm).
-- 🧭 **Single-point config**: page → grid → offsets → label → table → typography → logic → debug.
-- 🧮 **Dynamic columns** (per label), always **left-aligned**, **shrink-only** (free space on the right).
-- 🎛️ Fine-tune **left/right page margins**, **global XY offsets**, **per-column** and **per-row** nudges.
-- 🧱 Fully configurable **columns**: include RST or any ADIF field by editing `columns`.
-- 🧪 Debug: **outlines**, **row guides**, **left-edge ticks** for quick calibration on plain paper.
+- Label sheets and direct QSL cards with exact millimetre dimensions.
+- Configurable grids, margins, gaps, per-row/per-column calibration, typography,
+  layout, filters, sorting, deduplication, and QSL status rules.
+- Custom table columns sourced from standard or application-defined ADIF tags.
+- Versioned JSON snapshots that restore label/card modes, filters, custom
+  columns, and layout settings. Legacy unversioned snapshots are migrated.
+- Offline-first PDF generation using a pinned local copy of jsPDF 4.2.1.
+- Loss-preserving ADIF export that adds `QSL_SENT=Y` and `QSL_SENT_VIA=B` to the
+  selected records while retaining untouched fields and records.
 
-> **Tip:** In the printer dialog select **Actual size / 100%** (no page scaling).
+All ADIF/config processing happens in the browser. The application does not
+upload logs or snapshots and contains no analytics event reporting.
 
----
+ADIF export preserves record order and all untouched field names, values, type
+indicators, and extension fields. Updated records receive canonical field-length
+descriptors; line endings, outer record whitespace, and trailing header
+whitespace may be normalized. Filtering can intentionally omit records when
+“only filtered QSOs” is selected.
 
-## Installation
+> In the printer dialog, choose **Actual size / 100%**. Disable “Fit to page.”
+
+## Browser workflow
+
+1. Open `make_qsl_labels.html` from the hosted site or a local static server.
+2. Load an `.adi`, `.adif`, or `.txt` log in **Data**.
+3. Choose **Label sheets** or **Direct QSL card** and adjust the layout.
+4. Add custom columns by selecting any discovered ADIF tag. A tag restored from
+   a snapshot remains available even when the current log does not contain it.
+5. Use **Save snapshot** to keep all stable settings and **Load snapshot** to
+   restore them later.
+6. Export the PDF. Multi-page exports show progress and can be cancelled.
+
+Snapshots written by v5.25 use schema version 1. See
+[`docs/config-schema.md`](docs/config-schema.md) for compatibility and migration
+details.
+
+## Local development
+
+Requirements:
+
+- Node.js 24 or another current LTS release
+- npm
+- Chromium installed through Playwright
+- Poppler (`pdftoppm`) for PDF pixel comparison
+
+```bash
+npm ci
+npx playwright install chromium
+python3 -m http.server 4173 --bind 127.0.0.1
+```
+
+Then open <http://127.0.0.1:4173/make_qsl_labels.html>.
+
+## Verification
+
+```bash
+npm run lint
+npm run format:check
+npm run test:unit
+npm run test:e2e
+```
+
+Or run the same aggregate used by CI:
+
+```bash
+npm run ci
+```
+
+For a local working-tree comparison against the latest commit:
+
+```bash
+npm run benchmark:pdf
+```
+
+Set `PDF_BASELINE_REF` to compare against another Git reference.
+
+The suite includes configuration migrations, label/card snapshot round trips,
+official-spec-derived ADIF fixtures, seeded parser properties, untouched ADIF
+field/record preservation, PDF page-box and preview-to-PDF pixel comparisons,
+responsive Playwright scenarios, and axe accessibility checks.
+
+PDF regression tests use a 0.1 mm page-size tolerance. The visual comparison
+allows up to 6% changed pixels because PDF rasterization re-antialiases the 4×
+canvas image; larger changes fail and produce diagnostic images under the
+Playwright test output directory.
+
+## Dependencies
+
+The runtime PDF library is pinned and self-hosted:
+
+- jsPDF 4.2.1, MIT license
+- Runtime asset: `vendor/jspdf.umd.min.js`
+- Package source: <https://www.npmjs.com/package/jspdf/v/4.2.1>
+
+Development and test dependencies are pinned in `package-lock.json`.
+
+## Legacy Python version
+
+The old ReportLab-based script remains available for existing command-line
+workflows but is not feature-equivalent with the browser tool:
 
 ```bash
 pip install reportlab pyyaml
+python make_qsl_labels.py --adif log.adi --out qsl_labels.pdf
 ```
-
----
-
-## Quick Start
-
-```bash
-python make_qsl_labels.py --adif "log.adi" --out "qsl_labels.pdf"
-```
-
-**What you get** by default:
-
-- 3 columns × 8 rows of labels on A4
-- Left/right margins = **3 mm** (avoids printer clipping)
-- Global vertical offset = **+5 mm**
-- 4 QSOs per label
-- Columns: **Date | Time | Band | QSL | Mode**
-- Dynamic per-label widths; free space on the right if unused
-
----
-
-## Configuration (single place)
-
-Open `make_qsl_labels.py` and edit the `CONFIG` dict at the top. Settings are grouped in the order you’ll calibrate:
-
-1. **PAGE**: paper size, label grid (3×8), margins, global offsets  
-2. **GRID FINE TUNING**: per-column/per-row shifts (mm)  
-3. **INSIDE LABEL**: padding (mm)  
-4. **TABLE**: rows per label, **columns** (headers + sources), sizing behavior  
-5. **TYPOGRAPHY**: fonts & sizes  
-6. **LOGIC**: QSL rules, SSB normalization  
-7. **DEBUG**: outline/guides/ticks for test prints  
-
-You can also supply a YAML file and override any fields:
-
-```bash
-python make_qsl_labels.py --config config.yaml --adif "log.adi" --out "qsl_labels.pdf"
-```
-
-### Adding RST (or any ADIF field)
-
-Edit `CONFIG["columns"]` and add new entries:
-
-```python
-"columns": [
-  {"header": "Date", "source": "DATE"},
-  {"header": "Time", "source": "TIME"},
-  {"header": "Band", "source": "BAND"},
-  {"header": "RSTs", "source": "RST_SENT"},
-  {"header": "RSTr", "source": "RST_RCVD"},
-  {"header": "QSL",  "source": "QSL"},
-  {"header": "Mode", "source": "MODE"},
-]
-"min_col_mm":  [12, 10, 10, 6, 6, 6, 10]
-"static_col_mm":[20, 12, 12, 8, 8, 8, 18]
-```
-
-No other code changes are required.
-
----
-
-## Useful CLI Flags
-
-```bash
-# Debug aids
---outline            # draw label outlines
---guides             # draw row baselines
---left-ticks         # draw left edge tick inside each column (visual left alignment)
-
-# Page margins and global offsets
---left-margin-mm 3   # override left page margin
---right-margin-mm 3  # override right page margin
---x-offset-mm -1.5   # global shift left/right
---y-offset-mm  6     # global shift up/down
-
-# Fine-tuning per column/row
---col-offsets "0,0,0"                # mm per column (3 values)
---row-offsets "0,0,0,0,0,0,0,0"      # mm per row    (8 values)
-
-# Columns sizing
---static-cols        # disable dynamic widths; use CONFIG.static_col_mm
-```
-
-Example:
-
-```bash
-python make_qsl_labels.py \
-  --adif "log.adi" \
-  --out "labels.pdf" \
-  --left-margin-mm 3 --right-margin-mm 3 \
-  --x-offset-mm -1.5 --y-offset-mm 6 \
-  --outline --left-ticks
-```
-
----
-
-## YAML Config (optional)
-
-Create `config.yaml` to override any fields in `CONFIG`:
-
-```yaml
-# config.yaml
-left_margin_mm: 3.0
-right_margin_mm: 3.0
-x_offset_mm: -1.0
-y_offset_mm: 6.0
-
-rows_per_label: 4
-columns:
-  - { header: "Date", source: "DATE" }
-  - { header: "Time", source: "TIME" }
-  - { header: "Band", source: "BAND" }
-  - { header: "RSTs", source: "RST_SENT" }
-  - { header: "RSTr", source: "RST_RCVD" }
-  - { header: "QSL",  source: "QSL" }
-  - { header: "Mode", source: "MODE" }
-min_col_mm:  [12, 10, 10, 6, 6, 6, 10]
-static_col_mm:[20, 12, 12, 8, 8, 8, 18]
-```
-
-Run with:
-
-```bash
-python make_qsl_labels.py --config config.yaml --adif "log.adi" --out "labels.pdf"
-```
-
----
-
-## Sample
-
-A tiny `sample.adif` is included for quick testing:
-
-```bash
-python make_qsl_labels.py --adif sample.adif --out sample_labels.pdf --outline
-```
-
----
 
 ## License
 
-MIT – free to use, fork, and adapt.
+MIT — free to use, fork, and adapt.

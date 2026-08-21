@@ -1,15 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-PZCLRVBKKT"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);} 
-  gtag('js', new Date());
-  gtag('config', 'G-PZCLRVBKKT');
-</script>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://www.google-analytics.com; connect-src 'self' https://www.google-analytics.com https://azure.s53m.com https://www.country-files.com https://api.allorigins.win https://corsproxy.io; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; connect-src 'self' https://azure.s53m.com https://www.country-files.com https://api.allorigins.win https://corsproxy.io; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self';" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#ffffff" />
 <title>ADIF to QSL Labels helper</title>
@@ -36,11 +29,13 @@
 --font-body:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
 --font-mono:"IBM Plex Mono", "Courier New", monospace;
 }
+*,*::before,*::after{box-sizing:border-box}
 body{margin:0; font-family:var(--font-body); background:var(--bg); color:var(--ink); letter-spacing:0.01em}
 body.card-mode .mode-labels-only{display:none !important}
 body:not(.card-mode) .mode-card-only{display:none !important}
-.app{display:grid; grid-template-columns: 380px 1fr; min-height:100vh}
+.app{display:grid; grid-template-columns:380px minmax(0,1fr); min-height:100vh; min-width:0}
 aside{border-right:1px solid var(--border); background:var(--panel); padding:18px 20px; overflow:auto}
+aside,main,.preview-wrap{min-width:0}
 main{display:flex; flex-direction:column; height:100vh; position:sticky; top:0; align-self:start}
 
 .mode-toggle{display:inline-flex; gap:12px; background:var(--panel-2); border-radius:999px; padding:6px; border:1px solid var(--border); box-shadow:var(--shadow)}
@@ -157,7 +152,7 @@ canvas{background:#ffffff; border:1px solid var(--border); border-radius:12px; b
 
 .banner{margin:12px 16px 0 16px; padding:12px 14px; border-radius:12px; background:rgba(194,65,45,.12); color:var(--ink); font-size:12px; border:1px solid rgba(194,65,45,.2)}
 .warn{color:var(--warn); font-size:12px}
-.good{color:var(--good); font-size:12px}
+.good{color:#116b34; font-size:12px}
 
 .footer-bar{margin-top:18px; padding:16px 18px; border-radius:14px; border:1px solid var(--border); background:var(--panel); display:flex; flex-direction:column; align-items:flex-start; gap:12px}
 .footer-bar label{font-size:12px; color:var(--muted); margin-right:8px}
@@ -166,7 +161,7 @@ canvas{background:#ffffff; border:1px solid var(--border); border-radius:12px; b
 .footer-bar .theme-switcher{display:flex; align-items:center; gap:10px; width:100%; justify-content:space-between}
 .footer-bar .theme-switcher select{min-width:180px}
 .footer-message{font-size:11px; color:var(--muted)}
-.footer-message a{color:var(--accent); text-decoration:none}
+.footer-message a{color:var(--accent); text-decoration:underline; text-underline-offset:2px}
 .footer-message a:hover{text-decoration:underline}
 .footer-thanks{font-size:10px; color:var(--muted)}
 
@@ -181,6 +176,19 @@ main{position:static; height:auto}
 .footer-bar .theme-switcher{width:100%; justify-content:space-between}
 .footer-bar .theme-switcher select{flex:1}
 }
+@media (max-width:600px){
+aside{padding:12px}
+header{flex-wrap:wrap; padding:12px}
+header img{height:64px !important}
+header .stats{order:3; width:100%; margin-left:0}
+.controls{flex-wrap:wrap}
+.preview-wrap{padding:12px}
+.overlay .row{flex-direction:column}
+}
+@media (prefers-reduced-motion:reduce){
+.reveal-on-load{opacity:1 !important; transform:none !important; animation:none !important}
+.preview-wrap.is-recomputing canvas{animation:none !important}
+}
 /* === Surface bindings (theme-controlled) === */
 body{ color-scheme: light }
 header{ background: var(--panel); box-shadow: var(--shadow) }
@@ -192,6 +200,11 @@ input[type="text"], input[type="number"], input[type="date"], select, input[type
 .dialog{ background: var(--panel) }
 .download-buttons{display:flex; flex-direction:column; gap:10px; margin-top:10px}
 .download-buttons button{width:100%}
+.export-progress{display:none; gap:10px; align-items:center; margin-top:10px; padding:10px; border:1px solid var(--border); border-radius:10px; background:var(--panel-2)}
+.export-progress.is-active{display:flex}
+.export-progress progress{flex:1; min-width:0}
+.export-progress button{padding:7px 10px; width:auto}
+.app-status{min-height:1.25em; margin-top:8px; font-size:12px; color:var(--muted)}
 .help{font-size:11px; color:var(--muted)}
 #downloadSection .help{text-align:center}
 .inline-field{display:flex; flex-direction:column; gap:8px}
@@ -715,9 +728,11 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
           <p class="section-hint">Export or load a JSON snapshot of every setting.</p>
           <div class="controls">
             <button id="saveCfg">Save snapshot</button>
-            <input id="loadCfg" type="file" accept=".json" />
+            <label for="loadCfg" class="sr-only">Load configuration snapshot</label>
+            <input id="loadCfg" type="file" accept=".json,application/json" />
           </div>
           <p class="help">Saves/loads JSON with all your settings (including columns & layout).</p>
+          <div id="configStatus" class="app-status" role="status" aria-live="polite"></div>
         </div>
       </div>
 
@@ -730,6 +745,11 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
             <button id="downloadAdifBtn" disabled aria-describedby="downloadAdifHelp">Export ADIF</button>
           </div>
           <span id="downloadAdifHelp" class="sr-only">Adds QSL_SENT=Y and QSL_SENT_VIA=B to the QSOs you export.</span>
+        </div>
+        <div id="pdfProgress" class="export-progress" role="status" aria-live="polite" aria-atomic="true">
+          <progress id="pdfProgressBar" value="0" max="1"></progress>
+          <span id="pdfProgressText">Preparing PDF…</span>
+          <button id="cancelPdf" type="button">Cancel</button>
         </div>
         <!-- <p class="help">ADIF export updates each QSO with <code>&lt;QSL_SENT:1&gt;Y</code> and
         <code>&lt;QSL_SENT_VIA:1&gt;B</code> to mark sent via
@@ -746,7 +766,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
             <option value="modernLab">Modern Lab</option>
           </select>
         </div>
-        <div class="version">Version v5.24</div>
+        <div class="version">Version v5.25</div>
         <div class="footer-message">Write to <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> for suggestions or new improvements.</div>
         <div class="footer-thanks">TNX S51FB, DK8ZZ, S57C, TK5EP, K6TRK</div>
       </div>
@@ -756,7 +776,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
   <main>
     <header>
       <a href="https://s53zo.github.io/ADIF-to-QSL-label/" style="margin-right: 10px;">
-        <img src="https://s53zo.github.io/ADIF-to-QSL-label/ADIFtoQSL.jpg" alt="Logo" style="height: 100px; vertical-align: middle; border-radius: 6px;">
+        <img src="ADIFtoQSL.jpg" alt="ADIF to QSL label helper" style="height: 100px; vertical-align: middle; border-radius: 6px;">
       </a>
       <div class="header-title">
         <h1>QSL Labels</h1>
@@ -797,7 +817,7 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
         <span class="small" id="pageInfo">Page 1 / 1</span>
         <button id="nextPage">⟩</button>
         <div class="spacer"></div>
-        <label class="small muted">Zoom</label>
+        <label for="zoom" class="small muted">Zoom</label>
         <input id="zoom" type="range" min="50" max="200" value="100" />
       </div>
       <canvas id="preview"></canvas>
@@ -836,26 +856,12 @@ body.drop-active [data-section="data"]{border-color:var(--accent); box-shadow:0 
   </div>
 </div>
 
-<script>
-  window.__loadLocalJsPDF = function(){
-    if(window.__localJsPdfRequested) return;
-    window.__localJsPdfRequested = true;
-    const fallback=document.createElement('script');
-    fallback.src='vendor/jspdf.umd.min.js';
-    fallback.defer=true;
-    fallback.dataset.source='local-jspdf';
-    document.head.appendChild(fallback);
-  };
-  window.addEventListener('DOMContentLoaded', function(){
-    if(!window.jspdf && window.__loadLocalJsPDF){
-      window.__loadLocalJsPDF();
-    }
-  });
-</script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" onerror="window.__loadLocalJsPDF && window.__loadLocalJsPDF()"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="app-core.js"></script>
 
 <script>
 /***** IMPORTANT: JavaScript logic kept IDENTICAL to preserve functionality. *****/
+const CONFIG_SCHEMA_VERSION = window.QSLCore.CONFIG_SCHEMA_VERSION;
 /* ===== Units & helpers ===== */
 const MM = 72 / 25.4; const A4 = { w:210, h:297 }; const LETTER = { w:215.9, h:279.4 };
 function mm2pt(mm){ return mm*MM; } function pt2mm(pt){ return pt/MM; }
@@ -1323,7 +1329,7 @@ function initQslRuleBuilder(){
 }
 const THEMES={
   printStudio:{ label:"Print Studio", colorScheme:"light", vars:{ '--bg':'#f6f2ec','--panel':'#ffffff','--panel-2':'#efe9e1','--ink':'#1f1a17','--muted':'#756b61','--border':'#e2d7cb','--accent':'#c2412d','--accent-2':'#2f5e4e','--ring':'#c2412d' } },
-  industrial:{ label:"Industrial Tool", colorScheme:"light", vars:{ '--bg':'#f2f4f7','--panel':'#ffffff','--panel-2':'#e7ecf2','--ink':'#1d2430','--muted':'#6f7c8c','--border':'#cfd7e2','--accent':'#2b4c7e','--accent-2':'#7a5c2e','--ring':'#2b4c7e' } },
+  industrial:{ label:"Industrial Tool", colorScheme:"light", vars:{ '--bg':'#f2f4f7','--panel':'#ffffff','--panel-2':'#e7ecf2','--ink':'#1d2430','--muted':'#596778','--border':'#cfd7e2','--accent':'#2b4c7e','--accent-2':'#7a5c2e','--ring':'#2b4c7e' } },
   modernLab:{ label:"Modern Lab", colorScheme:"dark", vars:{ '--bg':'#0c0f14','--panel':'#121823','--panel-2':'#161e2c','--ink':'#eef2f7','--muted':'#a2afc2','--border':'#253246','--accent':'#f25f4c','--accent-2':'#2cb67d','--ring':'#f25f4c' } },
 };
 const LABEL_TEMPLATES = [
@@ -1701,12 +1707,10 @@ function initLabelTemplateSelect(){
   });
 }
 const SORT_MODES = ['CALL','PREFIX','DATE_ASC','DATE_DESC','FIFO'];
-const FIELD_TAG_WITH_ATTR = /<([A-Za-z0-9_]+):(\d+)(?::([^>]+))?>/ig;
 const PREFERRED_FIELD_ORDER = ['CALL','QSO_DATE','QSO_DATE_OFF','TIME_ON','TIME_OFF','BAND','MODE','FREQ'];
 let currentThemeName = 'industrial';
 let originalAdifHeader = '';
 let originalAdifRecords = [];
-let originalAdifHasHeader = false;
 let adifDownloadName = 'qsl_labels_updated.adi';
 function applyTheme(name, persist=true){
   const resolved = Object.prototype.hasOwnProperty.call(THEMES, name) ? name : (currentThemeName || 'industrial');
@@ -1749,30 +1753,11 @@ function setupHiDPICanvas(canvas, pageWpt, pageHpt, zoom){ const dpr=window.devi
 function setupPrintCanvas(canvas, pageWpt, pageHpt, scale=4){ const safeScale=Math.max(1, Number(scale)||4); canvas.width=Math.round(pageWpt*safeScale); canvas.height=Math.round(pageHpt*safeScale); canvas.style.width=Math.round(pageWpt)+"px"; canvas.style.height=Math.round(pageHpt)+"px"; const ctx=canvas.getContext('2d'); ctx.setTransform(safeScale,0,0,safeScale,0,0); return ctx; }
 
 /* ===== ADIF parsing & helpers ===== */
-const FIELD_TAG=/<([A-Za-z0-9_]+):(\d+)(?::[^>]+)?>/ig;
 function parseADIF(text){
-  if(!text) return [];
-  const parts=text.replace(/\r\n?/g,"\n").split(/<eoh>/i);
-  const body=parts.length>1?parts[1]:parts[0];
-  const records=body.split(/<eor>/ig);
-  const out=[];
-  for(const rec of records){
-    let m; let fields={};
-    while((m=FIELD_TAG.exec(rec))!==null){
-      const tag=m[1].toUpperCase(); const len=parseInt(m[2],10);
-      const start=m.index+m[0].length; const val=rec.substr(start,len);
-      fields[tag]=(val||"").trim();
-    }
-    if(Object.keys(fields).length) out.push(fields);
-  }
-  return out;
+  return window.QSLCore.parseADIF(text);
 }
 function formatAdifField(tag, value, attr){
-  const cleanTag = String(tag||"").trim();
-  const tagUpper = cleanTag ? cleanTag.toUpperCase() : "";
-  const valStr = (value==null) ? "" : String(value);
-  const attrPart = attr ? `:${String(attr)}` : "";
-  return `<${tagUpper}:${valStr.length}${attrPart}>${valStr}`;
+  return window.QSLCore.formatAdifField(tag, value, attr);
 }
 function serializeRecordFromObject(rec){
   if(!rec) return "";
@@ -1798,37 +1783,10 @@ function serializeRecordFromObject(rec){
   return fields.map(f=>formatAdifField(f.tag, f.value, f.attr)).join('');
 }
 function parseRecordFields(recordStr){
-  const fields=[];
-  if(!recordStr) return { fields, trailing:"" };
-  const re = new RegExp(FIELD_TAG_WITH_ATTR.source, 'ig');
-  let lastPos=0; let match;
-  while((match=re.exec(recordStr))!==null){
-    const tagOriginal = match[1];
-    const tag = tagOriginal.toUpperCase();
-    const attr = match[3] || "";
-    const valueStart = match.index + match[0].length;
-    const len = parseInt(match[2],10) || 0;
-    const value = recordStr.substr(valueStart, len);
-    fields.push({ tag, tagOriginal, attr, value });
-    lastPos = valueStart + len;
-    re.lastIndex = lastPos;
-  }
-  const trailing = recordStr.slice(lastPos);
-  return { fields, trailing };
+  return window.QSLCore.parseRecordFields(recordStr);
 }
 function ensureQslFields(recordStr){
-  const { fields, trailing } = parseRecordFields(recordStr);
-  const upsert=(tag,value)=>{
-    const existing = fields.find(f=>f.tag===tag);
-    if(existing){
-      existing.value = value;
-    }else{
-      fields.push({ tag, tagOriginal: tag, attr:"", value });
-    }
-  };
-  upsert('QSL_SENT','Y');
-  upsert('QSL_SENT_VIA','B');
-  return fields.map(f=>formatAdifField(f.tagOriginal || f.tag, f.value, f.attr)).join('') + (trailing || "");
+  return window.QSLCore.ensureQslFields(recordStr);
 }
 function fmtDate(s){
   if(!s) return "";
@@ -2608,14 +2566,30 @@ function readConfig(){
   document.getElementById('staticColMM').value= cfg.staticColMM.join(',');
   return cfg;
 }
-function configWithoutFilters(cfg){
-  if(!cfg || typeof cfg!=='object') return {};
-  const { f, ...rest } = cfg;
-  const clean = { ...rest };
-  if('dedupeMode' in clean){
-    delete clean.dedupeMode;
-  }
-  return clean;
+function readSnapshotFilters(){
+  return {
+    dateFrom: document.getElementById('fDateFrom').value || "",
+    dateTo: document.getElementById('fDateTo').value || "",
+    bands: parseCSVstrings(document.getElementById('fBands').value),
+    modes: parseCSVstrings(document.getElementById('fModes').value),
+    dxccCall: document.getElementById('fDxcc').value.trim(),
+    qslRules: readQslRulesFromUI(),
+    dedupeMode: document.getElementById('fDedupe').value || "OFF"
+  };
+}
+function createSnapshotFromUI(){
+  return window.QSLCore.createSnapshotConfig(readConfig(), readSnapshotFilters());
+}
+function applySnapshotFilters(filters, fallbackDedupe){
+  const f = filters && typeof filters === 'object' ? filters : {};
+  document.getElementById('fDateFrom').value = f.dateFrom || f.from || "";
+  document.getElementById('fDateTo').value = f.dateTo || f.to || "";
+  const csv = value => Array.isArray(value) ? value.join(',') : (typeof value === 'string' ? value : "");
+  document.getElementById('fBands').value = csv(f.bands);
+  document.getElementById('fModes').value = csv(f.modes);
+  document.getElementById('fDxcc').value = f.dxccCall || f.dxcc || "";
+  document.getElementById('fDedupe').value = String(f.dedupeMode || fallbackDedupe || 'OFF').toUpperCase();
+  setQslRulesFromConfig(f.qslRules);
 }
 
 /* ===== Preview & PDF use layout ===== */
@@ -2827,7 +2801,31 @@ function recompute(){
   if(!editorMode){ renderOnePage(cfg, currentPage); }
   pulsePreview();
 }
+let activePdfExport = null;
+function setPdfProgress(active, completed=0, total=1, message="Preparing PDF…"){
+  const wrap=document.getElementById('pdfProgress');
+  const bar=document.getElementById('pdfProgressBar');
+  const text=document.getElementById('pdfProgressText');
+  wrap.classList.toggle('is-active', active);
+  bar.max=Math.max(1,total);
+  bar.value=Math.min(completed,bar.max);
+  text.textContent=message;
+  document.getElementById('downloadBtn').setAttribute('aria-busy', active ? 'true' : 'false');
+}
+function canvasToPngBytes(canvas){
+  return new Promise((resolve,reject)=>{
+    canvas.toBlob(async blob=>{
+      if(!blob){ reject(new Error('Unable to encode the rendered PDF page.')); return; }
+      try{ resolve(new Uint8Array(await blob.arrayBuffer())); }
+      catch(error){ reject(error); }
+    }, 'image/png');
+  });
+}
+function yieldToBrowser(){
+  return new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+}
 async function downloadPDF() {
+    if(activePdfExport) return;
     const cfg = readConfig();
     const filtered = applyFilters(rows, cfg.f, cfg.dedupeMode);
     const pdfLabels = buildLabelsWithOffset(filtered, cfg);
@@ -2835,36 +2833,73 @@ async function downloadPDF() {
         alert("No QSOs match the current filters.");
         return;
     }
+    if(!window.jspdf || typeof window.jspdf.jsPDF !== 'function'){
+        alert("PDF support is unavailable. Reload the page and verify vendor/jspdf.umd.min.js is present.");
+        return;
+    }
+    const exportState={ cancelled:false };
+    activePdfExport=exportState;
+    const downloadButton=document.getElementById('downloadBtn');
+    downloadButton.disabled=true;
     const { jsPDF } = window.jspdf;
     const orientation = (cfg.pageWmm >= cfg.pageHmm) ? 'landscape' : 'portrait';
-    const doc = new jsPDF({
-        orientation,
-        unit: "mm",
-        format: [cfg.pageWmm, cfg.pageHmm],
-        compress: true
-    });
-    if (document.fonts && document.fonts.ready) {
-        await document.fonts.ready;
-    }
     const per = cfg.cols * cfg.rows;
     const pages = Math.max(1, Math.ceil(pdfLabels.length / per));
     const printScale = 4;
     const pageCanvas = document.createElement('canvas');
-    for (let p = 0; p < pages; p++) {
-        if (p > 0) doc.addPage([cfg.pageWmm, cfg.pageHmm], orientation);
-        renderOnePage(cfg, p, pageCanvas, pdfLabels, printScale);
-        doc.addImage(pageCanvas.toDataURL('image/png'), 'PNG', 0, 0, cfg.pageWmm, cfg.pageHmm);
+    setPdfProgress(true,0,pages,'Preparing PDF…');
+    try{
+      const doc = new jsPDF({
+          orientation,
+          unit: "mm",
+          format: [cfg.pageWmm, cfg.pageHmm],
+          compress: true,
+          putOnlyUsedFonts: true
+      });
+      doc.setProperties({
+        title: cfg.mode === 'qslCard' ? 'QSL cards' : 'QSL labels',
+        subject: 'Print-ready amateur radio QSL output',
+        author: 'ADIF to QSL Labels helper',
+        creator: `ADIF to QSL Labels v5.25`
+      });
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      for (let p = 0; p < pages; p++) {
+          if(exportState.cancelled) throw new DOMException('PDF export cancelled.', 'AbortError');
+          setPdfProgress(true,p,pages,`Rendering page ${p+1} of ${pages}…`);
+          if (p > 0) doc.addPage([cfg.pageWmm, cfg.pageHmm], orientation);
+          renderOnePage(cfg, p, pageCanvas, pdfLabels, printScale);
+          const pngBytes=await canvasToPngBytes(pageCanvas);
+          if(exportState.cancelled) throw new DOMException('PDF export cancelled.', 'AbortError');
+          doc.addImage(pngBytes, 'PNG', 0, 0, cfg.pageWmm, cfg.pageHmm, undefined, 'FAST');
+          setPdfProgress(true,p+1,pages,`Added page ${p+1} of ${pages}.`);
+          await yieldToBrowser();
+      }
+      if(exportState.cancelled) throw new DOMException('PDF export cancelled.', 'AbortError');
+      const baseName = cfg.mode === 'qslCard' ? 'qsl_card' : 'qsl_labels';
+      const suffixMap = {
+          PREFIX: '_by_prefix',
+          DATE_ASC: '_by_date_old_to_new',
+          DATE_DESC: '_by_date_new_to_old',
+          FIFO: '_fifo'
+      };
+      const suffix = suffixMap[cfg.sortMode] || '';
+      const fileName = baseName + (suffix || '') + '.pdf';
+      setPdfProgress(true,pages,pages,'Finalizing PDF…');
+      downloadBlob(fileName, doc.output('blob'));
+      setPdfProgress(true,pages,pages,`Downloaded ${pages} page${pages===1?'':'s'}.`);
+    }catch(error){
+      if(error?.name==='AbortError') setPdfProgress(true,0,pages,'PDF export cancelled.');
+      else{
+        console.error('PDF export failed', error);
+        setPdfProgress(true,0,pages,`PDF export failed: ${error?.message || 'unknown error'}`);
+      }
+    }finally{
+      pageCanvas.width=1; pageCanvas.height=1;
+      activePdfExport=null;
+      downloadButton.disabled=filtered.length===0;
+      downloadButton.setAttribute('aria-busy','false');
+      setTimeout(()=>{ if(!activePdfExport) setPdfProgress(false); },2500);
     }
-    const baseName = cfg.mode === 'qslCard' ? 'qsl_card' : 'qsl_labels';
-    const suffixMap = {
-        PREFIX: '_by_prefix',
-        DATE_ASC: '_by_date_old_to_new',
-        DATE_DESC: '_by_date_new_to_old',
-        FIFO: '_fifo'
-    };
-    const suffix = suffixMap[cfg.sortMode] || '';
-    const fileName = baseName + (suffix || '') + '.pdf';
-    doc.save(fileName);
 }
 function downloadUpdatedAdif(){
     const cfg = readConfig();
@@ -2888,35 +2923,40 @@ function downloadUpdatedAdif(){
     const recordSource = (Array.isArray(originalAdifRecords) && originalAdifRecords.length === recs.length)
         ? originalAdifRecords
         : recs.map(rec => serializeRecordFromObject(rec));
-    const updatedRecords = [];
-    for (let i = 0; i < recs.length; i++) {
-        const base = recordSource[i] ?? serializeRecordFromObject(recs[i]);
-        if (exportFilteredOnly && !indexSet.has(i)) {
-            continue;
-        }
-        const recordBody = indexSet.has(i) ? ensureQslFields(base) : base;
-        updatedRecords.push(recordBody.trim());
-    }
-    if (!updatedRecords.length) {
+    if (exportFilteredOnly && !indexSet.size) {
         alert("Nothing to export with the current settings.");
         return;
     }
-    const headerLine = (originalAdifHeader && originalAdifHeader.trim().length)
-        ? originalAdifHeader.trimEnd()
-        : "Generated by QSL Labels v5.24";
-    let output = "";
-    if (headerLine) {
-        output += headerLine + "\n";
-    }
-    output += "<EOH>\n";
-    updatedRecords.forEach(body => {
-        output += body + "\n<EOR>\n";
+    const output=window.QSLCore.buildUpdatedAdif({
+      headerRaw: originalAdifHeader,
+      headerFallback: "Generated by QSL Labels v5.25",
+      records: recordSource,
+      selectedIndexes: indexSet,
+      includeIndexes: exportFilteredOnly ? indexSet : null
     });
     const name = adifDownloadName || "qsl_labels_updated.adi";
     downloadBlob(name, new Blob([output], { type: 'text/plain' }));
 }
 
 /* ===== Column UI & picker ===== */
+function configuredColumnSources(){
+  return [...document.querySelectorAll('.col-row .col-s')].map(sel=>sel.value).filter(Boolean);
+}
+function populateColumnSourceSelect(select, selectedSource){
+  const selected = window.QSLCore.normalizeSource(selectedSource || select.value);
+  const options = window.QSLCore.mergeColumnSources(
+    [...configuredColumnSources(), selected],
+    adifFields
+  );
+  select.innerHTML = "";
+  options.forEach(source=>{
+    const option=document.createElement('option');
+    option.value=source;
+    option.textContent=source;
+    select.appendChild(option);
+  });
+  if(selected){ select.value=selected; }
+}
 function addColumnRow(header, source) {
     const wrap = document.getElementById('columns');
     const row = document.createElement('div');
@@ -2941,22 +2981,7 @@ function addColumnRow(header, source) {
     headerInput.addEventListener('input', recomputeDebounced);
     sourceSelect.addEventListener('change', recomputeDebounced);
 
-    const sel = sourceSelect;
-    const defaults = ["DATE", "TIME", "BAND", "MODE", "QSL"];
-    const seen = new Set();
-    [...defaults, ...adifFields].forEach(tag => {
-        if (!tag) return;
-        const up = String(tag).toUpperCase();
-        if (seen.has(up)) return;
-        seen.add(up);
-        const opt = document.createElement('option');
-        opt.value = up;
-        opt.textContent = up;
-        sel.appendChild(opt);
-    });
-    if (source) {
-        sel.value = String(source).toUpperCase();
-    }
+    populateColumnSourceSelect(sourceSelect, source || 'DATE');
     row.querySelector('.remove').onclick = () => {
         row.remove();
         recompute();
@@ -3014,7 +3039,6 @@ function loadSample(){
   const maxRows=+(document.getElementById('rowsPerLabel').value)||4;
   recs = generateSampleRows(50, maxRows); // Store raw data in recs
   originalAdifHeader = "Generated by QSL Labels sample";
-  originalAdifHasHeader = true;
   originalAdifRecords = recs.map(rec=>serializeRecordFromObject(rec));
   adifDownloadName = 'sample_qsl_updated.adi';
   rows = buildRows(recs); // Process it into rows
@@ -3022,11 +3046,7 @@ function loadSample(){
   adifFields=Array.from(tags).sort();
   refreshFooterFieldSelects();
   usingSample=true;
-  document.querySelectorAll('.col-row .col-s').forEach(sel=>{
-    const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
-    [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
-    if(keep) sel.value=keep;
-  });
+  document.querySelectorAll('.col-row .col-s').forEach(sel=>populateColumnSourceSelect(sel, sel.value));
   currentPage=0; recompute();
 }
 
@@ -3265,86 +3285,19 @@ function applyConfigToUI(cfg){
   if(cfg.cardLabelRotationDeg!==undefined) document.getElementById('cardLabelRotation').value = cfg.cardLabelRotationDeg;
   const useViaEl=document.getElementById('useQslVia');
   if(useViaEl){ useViaEl.value = cfg.useQslVia ? "1" : "0"; }
+  const booleanSelects={ dynamicCols:'dynamicCols', shrinkOnly:'shrinkOnly', dbgOutline:'dbgOutline' };
+  Object.entries(booleanSelects).forEach(([key,id])=>{
+    if(cfg[key]!==undefined){ document.getElementById(id).value = cfg[key] ? "1" : "0"; }
+  });
   updateModeVisibility();
 }
 function normalizeLoadedConfig(obj){
-  const isObject = v => v && typeof v === 'object' && !Array.isArray(v);
-  const toNumArray = v => {
-    if (!Array.isArray(v)) return null;
-    const out = [];
-    for (const item of v) {
-      const n = Number(item);
-      if (!Number.isFinite(n)) return null;
-      out.push(n);
-    }
-    return out;
-  };
-  if (!isObject(obj)) return { ok:false, error:"Config must be a JSON object." };
-
-  const out = { ...obj };
-  if (obj.cols !== undefined && (!Number.isInteger(obj.cols) || obj.cols <= 0)) {
-    return { ok:false, error:"cols must be a positive integer." };
+  try{
+    const result=window.QSLCore.migrateAndValidateConfig(obj);
+    return { ok:true, value:result.value, warnings:result.warnings, migrated:result.migrated };
+  }catch(error){
+    return { ok:false, error:error?.message || "Invalid configuration.", code:error?.code || "invalid" };
   }
-  if (obj.rows !== undefined && (!Number.isInteger(obj.rows) || obj.rows <= 0)) {
-    return { ok:false, error:"rows must be a positive integer." };
-  }
-  if (obj.rowsPerLabel !== undefined && (!Number.isInteger(obj.rowsPerLabel) || obj.rowsPerLabel <= 0)) {
-    return { ok:false, error:"rowsPerLabel must be a positive integer." };
-  }
-
-  if (obj.columns !== undefined) {
-    if (!Array.isArray(obj.columns) || obj.columns.length === 0) {
-      return { ok:false, error:"columns must be a non-empty array." };
-    }
-    const cols = [];
-    for (const col of obj.columns) {
-      if (!isObject(col)) return { ok:false, error:"Each column must be an object." };
-      const header = String(col.header ?? "").trim();
-      const source = String(col.source ?? "").trim().toUpperCase();
-      if (!header || !source) return { ok:false, error:"Each column needs header and source." };
-      cols.push({ header: header.slice(0, 64), source: source.slice(0, 64) });
-    }
-    out.columns = cols;
-  }
-
-  const colCount = out.columns ? out.columns.length : null;
-  const arrays = ["colOffsets","rowOffsets","minColMM","staticColMM"];
-  for (const key of arrays) {
-    if (obj[key] !== undefined) {
-      const arr = toNumArray(obj[key]);
-      if (!arr) return { ok:false, error:`${key} must be an array of numbers.` };
-      out[key] = arr;
-    }
-  }
-  if (obj.qsoRowsBold !== undefined) {
-    const mode = Number(obj.qsoRowsBold);
-    if (!Number.isInteger(mode) || mode < 0 || mode > 2) return { ok:false, error:"qsoRowsBold must be 0, 1, or 2" };
-    out.qsoRowsBold = mode;
-  }else{
-    out.qsoRowsBold = 0;
-  }
-  if (String(out.mode || '').toLowerCase() === 'qslcard') {
-    // Older card snapshots were saved after cols/rows were forced to one but
-    // before their label-grid offset arrays were resized. Those offsets are
-    // unused in card mode, so safely canonicalize them while loading.
-    out.mode = 'qslCard';
-    out.cols = 1;
-    out.rows = 1;
-    out.colOffsets = [0];
-    out.rowOffsets = [0];
-  }
-  if (colCount !== null) {
-    if (out.minColMM && out.minColMM.length !== colCount) return { ok:false, error:"minColMM length must match columns." };
-    if (out.staticColMM && out.staticColMM.length !== colCount) return { ok:false, error:"staticColMM length must match columns." };
-  }
-  if (out.cols && out.colOffsets && out.colOffsets.length !== out.cols) {
-    return { ok:false, error:"colOffsets length must match cols." };
-  }
-  if (out.rows && out.rowOffsets && out.rowOffsets.length !== out.rows) {
-    return { ok:false, error:"rowOffsets length must match rows." };
-  }
-
-  return { ok:true, value: out };
 }
 function initCollapsibles(){
   document.querySelectorAll('.collapsible').forEach(section=>{
@@ -3423,59 +3376,37 @@ async function loadAdifFile(f){
     alert("Unsupported file type. Please drop a .adi, .adif, or .txt file.");
     return;
   }
+  if(f.size > window.QSLCore.MAX_ADIF_BYTES){
+    alert(`ADIF file is too large. Maximum size is ${Math.round(window.QSLCore.MAX_ADIF_BYTES / 1024 / 1024)} MB.`);
+    return;
+  }
   const txt=await f.text();
   const normalized = txt.replace(/\r\n?/g,"\n");
-  const eohMatch = normalized.match(/<eoh>/i);
-  let header = "";
-  let body = normalized;
-  if(eohMatch){
-    header = normalized.slice(0, eohMatch.index);
-    body = normalized.slice(eohMatch.index + eohMatch[0].length);
-    originalAdifHasHeader = true;
-  }else{
-    header = "";
-    body = normalized;
-    originalAdifHasHeader = false;
+  let documentData;
+  try{
+    documentData=window.QSLCore.parseAdifDocument(normalized);
+  }catch(error){
+    alert(`Unable to read ADIF: ${error?.message || 'invalid data'}`);
+    return;
   }
-  const rawChunks = body.split(/<eor>/ig);
-  const recordStrings = [];
-  rawChunks.forEach(chunk=>{
-    const trimmed = chunk.trim();
-    if(trimmed) recordStrings.push(trimmed);
-  });
-  const recsRaw=parseADIF(normalized); recs=recsRaw; rows=buildRows(recs);
-  originalAdifHeader = header.replace(/\s+$/,'');
-  originalAdifRecords = recordStrings.length === recsRaw.length ? recordStrings : recsRaw.map(rec=>serializeRecordFromObject(rec));
-  if(originalAdifRecords.length !== recsRaw.length){
-    originalAdifRecords = recsRaw.map(rec=>serializeRecordFromObject(rec));
-  }
-  const stem = f.name ? f.name.replace(/\.(adi|adif|txt|cbr|log)$/i, '') : 'adif';
+  const recsRaw=documentData.records.map(window.QSLCore.recordToObject);
+  recs=recsRaw; rows=buildRows(recs);
+  originalAdifHeader = documentData.headerRaw.replace(/\s+$/,'');
+  originalAdifRecords = documentData.records.map(record=>record.raw);
+  const stemRaw = f.name ? f.name.replace(/\.(adi|adif|txt|cbr|log)$/i, '') : 'adif';
+  const stem = stemRaw.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '').slice(0, 96);
   adifDownloadName = `${stem || 'adif'}_qsl_updated.adi`;
   const tags=new Set(); recs.forEach(r=>Object.keys(r).forEach(k=>tags.add(k.toUpperCase())));
   adifFields=Array.from(tags).sort();
   refreshFooterFieldSelects();
   usingSample=false; currentPage=0;
-  document.querySelectorAll('.col-row .col-s').forEach(sel=>{
-    const keep=sel.value; sel.innerHTML=""; const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
-    [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; sel.appendChild(opt); });
-    if(keep) sel.value=keep;
-  });
+  document.querySelectorAll('.col-row .col-s').forEach(sel=>populateColumnSourceSelect(sel, sel.value));
   recompute();
-  try {
-    const uniqueCalls = new Set((rows||[]).map(r=>r.CALL)).size;
-    gtag('event', 'adif_upload', {
-      file_name: f.name,
-      file_ext: (f.name.split('.').pop()||'').toLowerCase(),
-      file_size_bytes: f.size || 0,
-      qso_rows: rows?.length || 0,
-      unique_calls: uniqueCalls,
-      sample_data_used: usingSample ? 'yes' : 'no'
-    });
-  } catch(e){ /* no-op */ }
+  if(documentData.warnings.length){ console.warn('ADIF warnings:', documentData.warnings); }
 }
 function bindInputs(){
   document.querySelectorAll('input,select,button').forEach(el=>{
-    if(["adifFile","downloadBtn","downloadAdifBtn","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat","addQslRule","labelTemplate"].includes(el.id)) return;
+    if(["adifFile","downloadBtn","downloadAdifBtn","cancelPdf","saveCfg","loadCfg","addCol","resetCols","prevPage","nextPage","pickOk","pickCancel","reloadSample","editLayoutBtn","resetLayout","applyLayout","closeEditor","dateFormat","addQslRule","labelTemplate"].includes(el.id)) return;
     if(el.id==='themeSelect') return;
     if(el.classList.contains('section-toggle') || el.classList.contains('mode-option')) return;
     el.addEventListener('input', debounce(()=>{ if(el.id==="cols"||el.id==="rows") autoResizeOffsetCSVs(); recompute(); },120));
@@ -3524,6 +3455,7 @@ document.getElementById('adifFile').addEventListener('change', async (e)=>{
     await loadAdifFile(f);
   });
   document.getElementById('downloadBtn').onclick=downloadPDF;
+  document.getElementById('cancelPdf').onclick=()=>{ if(activePdfExport) activePdfExport.cancelled=true; };
   const dlAdifButton = document.getElementById('downloadAdifBtn');
   if(dlAdifButton){ dlAdifButton.onclick=downloadUpdatedAdif; }
   document.querySelectorAll('.footer-insert-btn').forEach(btn=>{
@@ -3554,18 +3486,25 @@ document.getElementById('adifFile').addEventListener('change', async (e)=>{
     adifTooltip.addEventListener('focusout', hideTooltip);
   }
   document.getElementById('saveCfg').onclick=()=>{
-    const cfg=configWithoutFilters(readConfig());
-    downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
+    try{
+      const cfg=createSnapshotFromUI();
+      downloadBlob('qsl_config.json', new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
+      document.getElementById('configStatus').textContent=`Snapshot saved with schema v${CONFIG_SCHEMA_VERSION}.`;
+    }catch(error){
+      document.getElementById('configStatus').textContent=`Unable to save snapshot: ${error?.message || 'invalid settings'}`;
+    }
   };
   document.getElementById('loadCfg').addEventListener('change', async e => {
-    const f = e.target.files?.[0]; // CORRECTED THIS LINE
+    const f = e.target.files?.[0];
     if (!f) return;
+    const status=document.getElementById('configStatus');
+    if(f.size > 1024 * 1024){ status.textContent="Snapshot is too large (maximum 1 MB)."; e.target.value=""; return; }
     const txt = await f.text();
     try {
         const parsed = JSON.parse(txt);
         const normalized = normalizeLoadedConfig(parsed);
         if (!normalized.ok) {
-            alert(`Invalid config JSON: ${normalized.error}`);
+            status.textContent=`Invalid config: ${normalized.error}`;
             return;
         }
         const obj = normalized.value;
@@ -3580,8 +3519,8 @@ document.getElementById('adifFile').addEventListener('change', async (e)=>{
         if (layoutState) {
             layoutStateByMode.set(currentLayoutMode, layoutState);
         }
-        const sanitized = configWithoutFilters(obj);
-        applyConfigToUI(sanitized);
+        applyConfigToUI(obj);
+        applySnapshotFilters(obj.filters, obj.dedupeMode);
         if (obj.layout) {
             layoutState = obj.layout;
             layoutState._custom = obj.layout._custom ?? true;
@@ -3592,8 +3531,13 @@ document.getElementById('adifFile').addEventListener('change', async (e)=>{
         autoResizeOffsetCSVs();
         rows = buildRows(recs); // Re-process data after loading config with new date format
         recompute();
-    } catch {
-        alert("Invalid config JSON");
+        status.textContent = normalized.warnings?.length
+          ? `Snapshot restored. ${normalized.warnings.join(' ')}`
+          : `Snapshot restored (schema v${obj.schemaVersion}).`;
+    } catch(error) {
+        status.textContent=`Malformed config JSON: ${error?.message || 'unable to parse file'}`;
+    } finally {
+        e.target.value="";
     }
 });
   document.getElementById('reloadSample').onclick=()=> loadSample();
@@ -3608,9 +3552,8 @@ document.getElementById('adifFile').addEventListener('change', async (e)=>{
 /* ===== Column picker overlay ===== */
 const picker=document.getElementById('picker');
 function openPicker(){
-  const select=document.getElementById('pickSource'); select.innerHTML="";
-  const defaults=["DATE","TIME","BAND","MODE","QSL"]; const seen=new Set();
-  [...defaults, ...adifFields].forEach(tag=>{ if(!tag) return; const up=String(tag).toUpperCase(); if(seen.has(up)) return; seen.add(up); const opt=document.createElement('option'); opt.value=up; opt.textContent=up; select.appendChild(opt); });
+  const select=document.getElementById('pickSource');
+  populateColumnSourceSelect(select, 'DATE');
   document.getElementById('pickHeader').value="Header"; picker.style.display="flex";
 }
 function closePicker(){ picker.style.display="none"; }
