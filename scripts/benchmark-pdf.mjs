@@ -15,11 +15,15 @@ execFileSync("tar", ["-xf", archive, "-C", baseline]);
 
 const servers = [];
 function serve(directory, port) {
-  const process = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1"], {
-    cwd: directory,
-    stdio: "ignore",
-  });
-  servers.push(process);
+  const child = spawn(
+    process.execPath,
+    [path.join(repository, "scripts/serve.mjs"), String(port), directory],
+    {
+      cwd: repository,
+      stdio: "ignore",
+    },
+  );
+  servers.push(child);
   return `http://127.0.0.1:${port}/make_qsl_labels.html`;
 }
 

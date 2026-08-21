@@ -16,6 +16,8 @@
   improve mobile layout, contrast, reduced motion, and labelling.
 - Add unit, migration, conformance, seeded property, PDF, responsive Playwright,
   and axe tests with ESLint, Prettier, Dependabot, and CI.
+- Remove the retired command-line implementation and standardize local serving
+  and browser tests on Node.js.
 
 ## v5.24 — 2026-08-21
 

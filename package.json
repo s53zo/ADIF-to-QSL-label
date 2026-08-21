@@ -5,6 +5,7 @@
   "description": "Offline-first ADIF to printable QSL label and card helper",
   "license": "MIT",
   "scripts": {
+    "serve": "node scripts/serve.mjs 4173 .",
     "lint": "eslint app-core.js scripts tests playwright.config.js && node scripts/check-inline-js.mjs",
     "format": "prettier --write app-core.js scripts tests playwright.config.js eslint.config.js package.json README.md CHANGELOG.md docs .github vendor/README.md",
     "format:check": "prettier --check app-core.js scripts tests playwright.config.js eslint.config.js package.json README.md CHANGELOG.md docs .github vendor/README.md",

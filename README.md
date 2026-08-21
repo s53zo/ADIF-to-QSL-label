@@ -4,9 +4,7 @@ Browser-based, print-ready QSL labels and direct QSL cards generated locally
 from an ADIF log.
 
 Open the [hosted helper](https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html)
-or serve/clone this repository and open `make_qsl_labels.html`. The browser tool
-is the maintained version; `make_qsl_labels.py` is retained as an outdated legacy
-implementation.
+or clone this repository and serve `make_qsl_labels.html` locally.
 
 ## Features
 
@@ -58,7 +56,7 @@ Requirements:
 ```bash
 npm ci
 npx playwright install chromium
-python3 -m http.server 4173 --bind 127.0.0.1
+npm run serve
 ```
 
 Then open <http://127.0.0.1:4173/make_qsl_labels.html>.
@@ -105,16 +103,6 @@ The runtime PDF library is pinned and self-hosted:
 - Package source: <https://www.npmjs.com/package/jspdf/v/4.2.1>
 
 Development and test dependencies are pinned in `package-lock.json`.
-
-## Legacy Python version
-
-The old ReportLab-based script remains available for existing command-line
-workflows but is not feature-equivalent with the browser tool:
-
-```bash
-pip install reportlab pyyaml
-python make_qsl_labels.py --adif log.adi --out qsl_labels.pdf
-```
 
 ## License
 
