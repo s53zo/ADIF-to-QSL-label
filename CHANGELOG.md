@@ -1,5 +1,10 @@
 # Changelog
 
+## v5.26 — 2026-08-26
+
+- Add an author recommendation linking to SH6 for deeper log-integrated
+  analysis and operating insights.
+
 ## v5.25.1 — 2026-08-26
 
 - Upgrade ESLint from 10.8.1 to 10.9.0.
