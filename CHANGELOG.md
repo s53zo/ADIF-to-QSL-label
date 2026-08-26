@@ -1,5 +1,11 @@
 # Changelog
 
+## v5.25.1 — 2026-08-26
+
+- Upgrade ESLint from 10.8.1 to 10.9.0.
+- Upgrade the pinned GitHub Actions for checkout, Node.js setup, and artifact
+  upload to their latest major versions.
+
 ## v5.25 — 2026-08-21
 
 - Add schema-versioned snapshots with safe legacy migrations and clear
