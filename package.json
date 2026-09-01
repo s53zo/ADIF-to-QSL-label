@@ -24,7 +24,7 @@
     "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.62.1",
-    "eslint": "10.9.0",
+    "eslint": "10.9.1",
     "espree": "11.2.0",
     "fast-check": "4.9.0",
     "pdf-lib": "1.17.1",
